@@ -1,13 +1,20 @@
 <script setup lang="ts">
 import { computed, useId } from 'vue'
+import MasteryBar from '@/components/MasteryBar.vue'
+import type { MasterySummary } from '@/domain/aggregates'
 import type { Deck } from '@/domain/models'
 import { countLabel } from '@/domain/prompts'
 
 /**
- * One row of the folder screen (§7.2). The mastery bar (item 09) lands beside
- * the count.
+ * One row of the folder screen (§7.2). The quickstart Quiz button and the
+ * mastery bar sit beside the count.
  */
-const props = defineProps<{ deck: Deck; cardCount: number }>()
+const props = defineProps<{
+  deck: Deck
+  cardCount: number
+  /** Undefined until the deck has been summarised (§5.5). */
+  summary?: MasterySummary
+}>()
 
 const emit = defineEmits<{ rename: []; move: []; delete: []; quiz: [] }>()
 
@@ -86,5 +93,6 @@ function quiz(): void {
           : 'This deck has no cards to quiz yet.'
       }}
     </span>
+    <MasteryBar v-if="summary" :summary="summary" class="cardio-row-full mt-2" />
   </div>
 </template>

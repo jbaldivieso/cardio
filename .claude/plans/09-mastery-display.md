@@ -1,6 +1,6 @@
 # 09 — Mastery display
 
-Status: not started
+Status: done
 Depends on: 02, 04
 Spec: §5.5, §7.9, §7.3
 
@@ -31,10 +31,24 @@ Show what the user knows: a three-segment bar per deck and folder, and a badge p
 
 ## Acceptance
 
-- [ ] Bars appear on folder rows, deck rows, and badges on card rows.
-- [ ] Numbers update immediately after a quiz ends without a reload.
-- [ ] No mastery computation inside a `v-for` body (§13) — summaries come from the store.
+- [x] Bars appear on folder rows, deck rows, and badges on card rows.
+- [x] Numbers update immediately after a quiz ends without a reload.
+- [x] No mastery computation inside a `v-for` body (§13) — summaries come from the store.
 
 ## Out of scope
 
 Charts, history graphs, per-direction breakdowns.
+
+## Notes
+
+- The memo lives in a store of its own, `src/stores/mastery.ts`, which the writer
+  invalidates: see docs/decisions.md > ADR-032 for why that is not the sideways write
+  ADR-024 rules out.
+- Item 07's quiz store closes the second acceptance box: it records each answer, then
+  calls `mastery.invalidate(deckId)`, which is what the cards store already does after a
+  card write. Both are covered by store specs; nothing else is needed for the summary to
+  be right the moment a quiz ends.
+- `segmentWidths` (domain) hands the bar whole percentages that add up to 100 —
+  ADR-033.
+- Out of scope but noticed: the quickstart **Quiz** buttons of §7.1 and §7.2 are still
+  missing from the folder and deck rows. They belong to item 08.

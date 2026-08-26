@@ -14,7 +14,7 @@ item. Each file states its own scope; `docs/spec.md` holds the detail it cites.
 | 06  | [Quiz selection domain](06-quiz-selection.md) — **done**      | 02         |
 | 07  | [Quiz runner UI](07-quiz-ui.md) — **done**                    | 05, 06     |
 | 08  | [Quiz entry points](08-quiz-entry-points.md) — **done**       | 07         |
-| 09  | [Mastery display](09-mastery-display.md)                      | 02, 04     |
+| 09  | [Mastery display](09-mastery-display.md) — **done**           | 02, 04     |
 | 10  | [Settings, theme and backup](10-settings-and-backup.md)       | 01         |
 | 11  | [PWA polish](11-pwa-polish.md)                                | 07         |
 | 12  | [E2E happy path](12-e2e-happy-path.md)                        | 08, 09     |

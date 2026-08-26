@@ -53,6 +53,12 @@
   line-clamp: 2;
 }
 
+// A row's mastery bar takes a line of its own: sharing the name's column left
+// it a few dozen pixels wide on a phone. Bulma has no flex-basis helper.
+.cardio-row-full {
+  flex-basis: 100%;
+}
+
 // A row that opens something on tap says so under the pointer. Keyboard users
 // reach the same screen through the row's own Edit button; see CardRow.vue.
 .cardio-tappable {

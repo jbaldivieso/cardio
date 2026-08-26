@@ -10,6 +10,7 @@ import type { Card } from '@/domain/models'
 import { deleteCardPrompt } from '@/domain/prompts'
 import { useCardsStore } from '@/stores/cards'
 import { useLibraryStore } from '@/stores/library'
+import { useMasteryStore } from '@/stores/mastery'
 import { useQuizStore } from '@/stores/quiz'
 
 /** The cards of one deck (§7.3). `deckId` comes from the route. */
@@ -19,6 +20,7 @@ type Dialog = { kind: 'bulk' } | { kind: 'delete'; card: Card }
 
 const library = useLibraryStore()
 const cards = useCardsStore()
+const mastery = useMasteryStore()
 const quiz = useQuizStore()
 const router = useRouter()
 const dialog = ref<Dialog | null>(null)
@@ -35,6 +37,8 @@ function openDialog(next: Dialog | null): void {
 onMounted(() => {
   void library.load()
   void cards.load(props.deckId)
+  // Every badge on the screen is scored at the moment the screen opened.
+  mastery.tick()
 })
 
 /** §7.3's Quiz action: the same one-tap quickstart as the deck's row (§6.1). */
@@ -151,6 +155,7 @@ async function confirmDelete(): Promise<void> {
         v-for="card in cards.cards"
         :key="card.id"
         :card="card"
+        :now="mastery.now"
         @open="openEditor(card)"
         @delete="openDialog({ kind: 'delete', card })"
       />
