@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { seedDefaults, UNSORTED_FOLDER_ID } from '@/db'
 import type { Card } from '@/domain/models'
+import { defaultQuizConfig } from '@/domain/quiz'
 import type { QuizConfig } from '@/domain/quiz'
 import { useQuizStore } from '@/stores/quiz'
 import { repositories } from '@/stores/repositories'
@@ -38,6 +39,7 @@ describe('quiz store', () => {
   beforeEach(async () => {
     setActivePinia(createPinia())
     vi.spyOn(Date, 'now').mockReturnValue(NOW)
+    localStorage.clear()
     await seedDefaults(test.db, 1000)
     deckId = (await repositories.decks.create(UNSORTED_FOLDER_ID, 'Verbs', 1000)).id
     pool = await seedPool(3)
@@ -157,6 +159,21 @@ describe('quiz store', () => {
       expect((await repositories.cards.get(card.id))?.updatedAt).toBe(1000)
     })
 
+    it('records one answer when a card is graded twice before the write lands', async () => {
+      const store = useQuizStore()
+      store.start(pool, configFor())
+      const card = store.current as Card
+      store.flip()
+
+      // A fast double tap, or Space re-activating the button the pointer just
+      // used: both grades arrive before the first write comes back.
+      await Promise.all([store.answer(true), store.answer(true)])
+
+      expect(store.answers).toHaveLength(1)
+      expect(store.index).toBe(1)
+      expect((await repositories.cards.get(card.id))?.stats.gets).toBe(2)
+    })
+
     it('completes the session on the last card', async () => {
       const store = useQuizStore()
       store.start(pool, configFor())
@@ -270,6 +287,21 @@ describe('quiz store', () => {
       expect((await repositories.cards.get(first.id))?.stats.misses).toBe(1)
     })
 
+    it('undoes once when undo is pressed twice before the write lands', async () => {
+      const store = useQuizStore()
+      store.start(pool, configFor())
+      const first = store.current as Card
+
+      await answerCard(false)
+      const second = store.current as Card
+      await answerCard(false)
+      await Promise.all([store.undo(), store.undo()])
+
+      expect(store.index).toBe(1)
+      expect(store.current?.id).toBe(second.id)
+      expect(store.answers.map((answer) => answer.card.id)).toEqual([first.id])
+    })
+
     it('does nothing when there is nothing to undo', async () => {
       const store = useQuizStore()
       store.start(pool, configFor())
@@ -364,6 +396,114 @@ describe('quiz store', () => {
         gets: 2,
         lastSeenAt: NOW,
       })
+    })
+  })
+
+  describe('launch', () => {
+    it('reads the pool from the decks it was given and runs it', async () => {
+      const store = useQuizStore()
+
+      const started = await store.launch(configFor(), { name: 'home' })
+
+      expect(started).toBe(true)
+      expect(store.phase).toBe('running')
+      expect(store.cards).toHaveLength(3)
+    })
+
+    it('remembers where it was launched from', async () => {
+      const store = useQuizStore()
+
+      await store.launch(configFor(), { name: 'deck', params: { deckId } })
+
+      expect(store.origin).toEqual({ name: 'deck', params: { deckId } })
+    })
+
+    it('refuses to start a session with nothing in it', async () => {
+      const store = useQuizStore()
+      const empty = (await repositories.decks.create(UNSORTED_FOLDER_ID, 'Empty', 1000)).id
+
+      const started = await store.launch(configFor({ deckIds: [empty] }), { name: 'home' })
+
+      expect(started).toBe(false)
+      expect(store.phase).toBe('configuring')
+    })
+
+    it('reports a failed read rather than starting', async () => {
+      const store = useQuizStore()
+      vi.spyOn(repositories.cards, 'listByDecks').mockRejectedValue(new Error('Database is gone.'))
+
+      const started = await store.launch(configFor(), { name: 'home' })
+
+      expect(started).toBe(false)
+      expect(store.error).toBe('Database is gone.')
+    })
+  })
+
+  describe('quickstart', () => {
+    it('uses the defaults of spec §6.1, not what was last configured', async () => {
+      localStorage.setItem(
+        'cardio.quizConfig',
+        JSON.stringify({ deckIds: ['other'], direction: 'back', tier: 7, size: 50 }),
+      )
+      const store = useQuizStore()
+
+      await store.quickstart([deckId], { name: 'home' })
+
+      expect(store.direction).toBe('front')
+      expect(store.cards).toHaveLength(3)
+    })
+
+    it('does not start on a deck with no cards', async () => {
+      const store = useQuizStore()
+      const empty = (await repositories.decks.create(UNSORTED_FOLDER_ID, 'Empty', 1000)).id
+
+      expect(await store.quickstart([empty], { name: 'home' })).toBe(false)
+    })
+  })
+
+  describe('the remembered config', () => {
+    it('starts from the defaults when nothing has been saved', () => {
+      expect(useQuizStore().loadConfig()).toEqual(defaultQuizConfig())
+    })
+
+    it('round-trips through localStorage', () => {
+      const store = useQuizStore()
+      const config = configFor({ direction: 'back', tier: 6, size: 'all' })
+
+      store.saveConfig(config)
+
+      expect(store.loadConfig()).toEqual(config)
+    })
+
+    it('writes it under the key spec §6.1 names', () => {
+      const store = useQuizStore()
+
+      store.saveConfig(configFor())
+
+      expect(JSON.parse(localStorage.getItem('cardio.quizConfig') ?? 'null')).toEqual(configFor())
+    })
+
+    it('falls back to the defaults when what is stored is corrupt', () => {
+      localStorage.setItem('cardio.quizConfig', '{ not json')
+
+      expect(useQuizStore().loadConfig()).toEqual(defaultQuizConfig())
+    })
+
+    it('survives a storage that refuses to be read', () => {
+      vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new Error('Storage is disabled.')
+      })
+
+      expect(useQuizStore().loadConfig()).toEqual(defaultQuizConfig())
+    })
+
+    it('survives a storage that refuses to be written', () => {
+      const store = useQuizStore()
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new Error('Storage is full.')
+      })
+
+      expect(() => store.saveConfig(configFor())).not.toThrow()
     })
   })
 })

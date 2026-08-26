@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 import type { Card, CardStats, QuizDirection } from '@/domain/models'
-import { buildSession, shuffle } from '@/domain/quiz'
+import { buildSession, defaultQuizConfig, parseQuizConfig, shuffle } from '@/domain/quiz'
 import type { QuizConfig } from '@/domain/quiz'
 import { useErrorSurface } from '@/stores/errors'
 import { repositories } from '@/stores/repositories'
@@ -48,6 +48,9 @@ function cloneStats(stats: CardStats): CardStats {
 /** Where **Done** on the summary goes when a session did not say (§6.6). */
 const DEFAULT_ORIGIN: RouteLocationRaw = { name: 'home' }
 
+/** Where the last custom config is remembered (spec §6.1). */
+const QUIZ_CONFIG_KEY = 'cardio.quizConfig'
+
 /**
  * One quiz run: the queue, where in it we are, and what has been graded.
  *
@@ -71,6 +74,13 @@ export const useQuizStore = defineStore('quiz', () => {
    */
   const undoable = shallowRef<UndoSnapshot | null>(null)
   const origin = ref<RouteLocationRaw>(DEFAULT_ORIGIN)
+  /**
+   * True while a grade or an undo is being written. Both read the session,
+   * await IndexedDB and only then move it, so without this a second grade
+   * arriving first — a double tap, or Space re-activating the button the
+   * pointer just used — would answer the same card twice.
+   */
+  const writing = ref(false)
   const { error, attempt } = useErrorSurface()
 
   const current = computed<Card | null>(() => cards.value[index.value] ?? null)
@@ -125,10 +135,12 @@ export const useQuizStore = defineStore('quiz', () => {
     const card = current.value
     // §7.6: the grading buttons are unreachable before the flip; this is the
     // same rule for the keyboard shortcuts and for anything calling in.
-    if (!flipped.value || card === null || phase.value !== 'running') return
+    if (writing.value || !flipped.value || card === null || phase.value !== 'running') return
 
     const snapshot: UndoSnapshot = { cardId: card.id, stats: cloneStats(card.stats) }
+    writing.value = true
     const answered = await attempt(() => repositories.cards.recordAttempt(card.id, got, Date.now()))
+    writing.value = false
     if (!answered) return
 
     cards.value = cards.value.map((entry) => (entry.id === answered.id ? answered : entry))
@@ -145,11 +157,13 @@ export const useQuizStore = defineStore('quiz', () => {
   /** Puts the previous card's statistics back exactly as they were (§6.5). */
   async function undo(): Promise<void> {
     const snapshot = undoable.value
-    if (!canUndo.value || snapshot === null) return
+    if (writing.value || !canUndo.value || snapshot === null) return
 
+    writing.value = true
     const restored = await attempt(() =>
       repositories.cards.saveStats(snapshot.cardId, snapshot.stats),
     )
+    writing.value = false
     if (!restored) return
 
     cards.value = cards.value.map((entry) => (entry.id === restored.id ? restored : entry))
@@ -167,6 +181,43 @@ export const useQuizStore = defineStore('quiz', () => {
     const missed = summary.value.missedCards
     if (missed.length === 0) return
     run(shuffle(missed, Math.random))
+  }
+
+  /**
+   * Reads the pool for a config and starts running it. Answers `false` when
+   * there was nothing to ask, which is the caller's cue to explain rather than
+   * navigate (§7.5).
+   */
+  async function launch(config: QuizConfig, from: RouteLocationRaw): Promise<boolean> {
+    const pool = await attempt(() => repositories.cards.listByDecks(config.deckIds))
+    if (!pool) return false
+    start(pool, config, from)
+    return phase.value === 'running'
+  }
+
+  /** One tap from a deck or folder row: always the §6.1 defaults (§7.1, §7.2). */
+  async function quickstart(deckIds: string[], from: RouteLocationRaw): Promise<boolean> {
+    return launch(defaultQuizConfig(deckIds), from)
+  }
+
+  /** The config the configure screen opens with (§6.1). */
+  function loadConfig(): QuizConfig {
+    try {
+      return parseQuizConfig(localStorage.getItem(QUIZ_CONFIG_KEY))
+    } catch {
+      // A storage the browser refuses to read (private mode, blocked cookies)
+      // is a missing preference, not an error worth showing.
+      return defaultQuizConfig()
+    }
+  }
+
+  function saveConfig(config: QuizConfig): void {
+    try {
+      localStorage.setItem(QUIZ_CONFIG_KEY, JSON.stringify(config))
+    } catch {
+      // Remembering the last config is a convenience; a full or blocked store
+      // must not stop a quiz from starting.
+    }
   }
 
   /** Leaves the session. What was already answered stays answered (§6.5). */
@@ -194,6 +245,10 @@ export const useQuizStore = defineStore('quiz', () => {
     canUndo,
     summary,
     start,
+    launch,
+    quickstart,
+    loadConfig,
+    saveConfig,
     flip,
     answer,
     undo,

@@ -25,6 +25,12 @@ export interface QuizConfig {
   size: QuizSize
 }
 
+/** Every tier, in slider order (spec §6.2). */
+export const QUIZ_TIERS: QuizTier[] = [1, 2, 3, 4, 5, 6, 7]
+
+/** Every session size the configure screen offers (spec §6.1). */
+export const QUIZ_SIZES: QuizSize[] = [10, 20, 50, 'all']
+
 /**
  * The share of a session each tier gives to mastered cards (spec §6.2). Tiers 1
  * and 7 are hard filters rather than mixes; their 0 and 1 are here so the table
@@ -56,6 +62,58 @@ const TIER_LABELS: Record<QuizTier, string> = {
 
 export function tierLabel(tier: QuizTier): string {
   return TIER_LABELS[tier]
+}
+
+/**
+ * The configuration of §6.1: front, tier 4, twenty cards. Quickstart uses
+ * exactly this and never the remembered config, so a one-tap quiz always does
+ * the same thing.
+ */
+export function defaultQuizConfig(deckIds: string[] = []): QuizConfig {
+  return { deckIds, direction: 'front', tier: 4, size: 20 }
+}
+
+function readDirection(value: unknown): QuizDirection {
+  return value === 'back' ? 'back' : 'front'
+}
+
+function readTier(value: unknown): QuizTier {
+  return QUIZ_TIERS.find((tier) => tier === value) ?? 4
+}
+
+function readSize(value: unknown): QuizSize {
+  return QUIZ_SIZES.find((size) => size === value) ?? 20
+}
+
+function readDeckIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((id): id is string => typeof id === 'string')
+}
+
+/**
+ * The remembered config from `cardio.quizConfig` (spec §6.1), field by field:
+ * anything unreadable — a corrupt string, a tier of 99, a size that was never
+ * offered — falls back to that field's default rather than throwing. Storage
+ * this small is not worth an error state, and half a remembered config still
+ * beats none.
+ */
+export function parseQuizConfig(stored: string | null): QuizConfig {
+  let parsed: unknown
+  try {
+    parsed = stored === null ? null : JSON.parse(stored)
+  } catch {
+    return defaultQuizConfig()
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return defaultQuizConfig()
+  }
+  const raw = parsed as Record<string, unknown>
+  return {
+    deckIds: readDeckIds(raw.deckIds),
+    direction: readDirection(raw.direction),
+    tier: readTier(raw.tier),
+    size: readSize(raw.size),
+  }
 }
 
 /** A new array holding the same items in a random order (Fisher-Yates). */

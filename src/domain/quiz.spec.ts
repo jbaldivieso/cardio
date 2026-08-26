@@ -4,6 +4,10 @@ import { MASTERY_HISTORY_LIMIT } from '@/domain/models'
 import type { Card, CardStats } from '@/domain/models'
 import {
   buildSession,
+  defaultQuizConfig,
+  parseQuizConfig,
+  QUIZ_SIZES,
+  QUIZ_TIERS,
   recordAnswer,
   sampleWithoutReplacement,
   shuffle,
@@ -346,6 +350,98 @@ describe('recordAnswer', () => {
       misses: 0,
       history: [{ at: NOW, got: true }],
       lastSeenAt: NOW,
+    })
+  })
+})
+
+describe('QUIZ_TIERS', () => {
+  it('lists the seven slider positions in order', () => {
+    expect(QUIZ_TIERS).toEqual([1, 2, 3, 4, 5, 6, 7])
+  })
+})
+
+describe('QUIZ_SIZES', () => {
+  it('offers the four session sizes of spec §6.1', () => {
+    expect(QUIZ_SIZES).toEqual([10, 20, 50, 'all'])
+  })
+})
+
+describe('defaultQuizConfig', () => {
+  it('is front, tier 4, twenty cards', () => {
+    expect(defaultQuizConfig(['deck-1'])).toEqual({
+      deckIds: ['deck-1'],
+      direction: 'front',
+      tier: 4,
+      size: 20,
+    })
+  })
+
+  it('starts from no decks when it is given none', () => {
+    expect(defaultQuizConfig().deckIds).toEqual([])
+  })
+})
+
+describe('parseQuizConfig', () => {
+  const stored: QuizConfig = {
+    deckIds: ['deck-1', 'deck-2'],
+    direction: 'back',
+    tier: 6,
+    size: 'all',
+  }
+
+  it('round-trips a config it wrote', () => {
+    expect(parseQuizConfig(JSON.stringify(stored))).toEqual(stored)
+  })
+
+  it('falls back to the defaults when nothing is stored', () => {
+    expect(parseQuizConfig(null)).toEqual(defaultQuizConfig())
+  })
+
+  it('falls back to the defaults rather than throwing on corrupt JSON', () => {
+    expect(parseQuizConfig('{ not json')).toEqual(defaultQuizConfig())
+  })
+
+  it('falls back to the defaults when the stored value is not an object', () => {
+    expect(parseQuizConfig('"front"')).toEqual(defaultQuizConfig())
+    expect(parseQuizConfig('null')).toEqual(defaultQuizConfig())
+    expect(parseQuizConfig('[1, 2]')).toEqual(defaultQuizConfig())
+  })
+
+  it.each([
+    { field: 'direction', value: '{"direction":"sideways"}', expected: 'front' },
+    { field: 'direction', value: '{"direction":7}', expected: 'front' },
+  ])('replaces an unusable $field', ({ value, expected }) => {
+    expect(parseQuizConfig(value).direction).toBe(expected)
+  })
+
+  it.each(['{"tier":0}', '{"tier":8}', '{"tier":"4"}', '{"tier":3.5}'])(
+    'replaces an unusable tier in %s',
+    (value) => {
+      expect(parseQuizConfig(value).tier).toBe(4)
+    },
+  )
+
+  it.each(['{"size":15}', '{"size":"20"}', '{"size":"every"}'])(
+    'replaces an unusable size in %s',
+    (value) => {
+      expect(parseQuizConfig(value).size).toBe(20)
+    },
+  )
+
+  it('keeps only the deck ids that are strings', () => {
+    expect(parseQuizConfig('{"deckIds":["a",3,null,"b"]}').deckIds).toEqual(['a', 'b'])
+  })
+
+  it('takes no decks from a stored value that is not a list', () => {
+    expect(parseQuizConfig('{"deckIds":"deck-1"}').deckIds).toEqual([])
+  })
+
+  it('keeps the fields it can read when others are unusable', () => {
+    expect(parseQuizConfig('{"deckIds":["a"],"direction":"back","tier":99,"size":50}')).toEqual({
+      deckIds: ['a'],
+      direction: 'back',
+      tier: 4,
+      size: 50,
     })
   })
 })

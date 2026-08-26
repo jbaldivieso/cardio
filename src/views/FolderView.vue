@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import Breadcrumb from '@/components/Breadcrumb.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import DeckRow from '@/components/DeckRow.vue'
@@ -8,6 +9,7 @@ import NameDialog from '@/components/NameDialog.vue'
 import type { Deck } from '@/domain/models'
 import { deleteDeckPrompt } from '@/domain/prompts'
 import { useLibraryStore } from '@/stores/library'
+import { useQuizStore } from '@/stores/quiz'
 
 /** The decks of one folder (§7.2). `folderId` comes from the route. */
 const props = defineProps<{ folderId: string }>()
@@ -19,6 +21,8 @@ type Dialog =
   | { kind: 'delete'; deck: Deck }
 
 const library = useLibraryStore()
+const quiz = useQuizStore()
+const router = useRouter()
 const dialog = ref<Dialog | null>(null)
 /** Why the open dialog's last submit was refused. Cleared whenever one opens. */
 const dialogError = ref<string | null>(null)
@@ -59,6 +63,12 @@ async function submitMove(target: string): Promise<void> {
   else dialogError.value = library.error
 }
 
+/** One tap, the §6.1 defaults, straight into the session (§7.2). */
+async function quizDeck(deckId: string): Promise<void> {
+  const from = { name: 'folder', params: { folderId: props.folderId } }
+  if (await quiz.quickstart([deckId], from)) await router.push({ name: 'quiz-run' })
+}
+
 async function confirmDelete(): Promise<void> {
   const open = dialog.value
   if (open?.kind !== 'delete') return
@@ -88,14 +98,23 @@ async function confirmDelete(): Promise<void> {
         class="is-flex is-flex-wrap-wrap is-align-items-center is-justify-content-space-between is-gap-2 mb-4"
       >
         <h1 class="title is-4 mb-0">{{ folder.name }}</h1>
-        <button
-          type="button"
-          class="button is-primary cardio-action"
-          data-testid="new-deck"
-          @click="openDialog({ kind: 'create' })"
-        >
-          New deck
-        </button>
+        <div class="is-flex is-flex-shrink-0 is-gap-2">
+          <RouterLink
+            class="button cardio-action"
+            :to="{ name: 'quiz-configure', query: { folder: folderId } }"
+            data-testid="folder-custom-quiz"
+          >
+            Custom quiz
+          </RouterLink>
+          <button
+            type="button"
+            class="button is-primary cardio-action"
+            data-testid="new-deck"
+            @click="openDialog({ kind: 'create' })"
+          >
+            New deck
+          </button>
+        </div>
       </div>
 
       <DeckRow
@@ -104,6 +123,7 @@ async function confirmDelete(): Promise<void> {
         :deck="deck"
         :card-count="library.cardCount(deck.id)"
         @rename="openDialog({ kind: 'rename', deck })"
+        @quiz="quizDeck(deck.id)"
         @move="openDialog({ kind: 'move', deck })"
         @delete="openDialog({ kind: 'delete', deck })"
       />

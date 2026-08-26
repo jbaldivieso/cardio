@@ -433,3 +433,21 @@ grading reachable from the keyboard at all, since §7.6 wants no reveal button t
 top of the quiz has to say so: `keyboardActive` is false while the leave confirmation is
 open, and `QuizRunView` is the one place that sets it. A future overlay over the running
 quiz must do the same.
+
+## ADR-031 — A gated action says `aria-disabled`, not `disabled`
+
+**Decision.** The quickstart buttons on a deck row, a folder row and the deck screen, and
+**Start quiz** on the configure screen, carry `aria-disabled="true"` and Bulma's
+`is-static` when they cannot run. They keep the `disabled` attribute off, stay in the tab
+order, and each points at a visually hidden sentence with `aria-describedby` saying why.
+Their handlers return early, so a click does nothing.
+
+**Why.** §7.2 asks that quickstart be "disabled with a tooltip when the deck has no
+cards", and item 08 asks that the reason reach a screen reader. A truly `disabled`
+button satisfies neither half: it cannot be focused, so its `title` never appears and its
+description is never announced — the control simply goes quiet, and the user is left to
+guess what is wrong with the deck.
+
+**Consequence.** Every gated action needs its own guard in the handler, because the
+browser no longer enforces one for us. The `is-sr-only` sentence carries the reason in
+both states, so the description is useful once the deck has cards too.

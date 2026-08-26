@@ -3,11 +3,13 @@ import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import type { Router } from 'vue-router'
 import { flushPromises, mount } from '@vue/test-utils'
+import type { RouterLinkStub } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
 import { UNSORTED_FOLDER_ID, seedDefaults } from '@/db'
 import { routes } from '@/router'
 import { useCardsStore } from '@/stores/cards'
 import { useLibraryStore } from '@/stores/library'
+import { useQuizStore } from '@/stores/quiz'
 import { repositories } from '@/stores/repositories'
 import { useTestDatabase } from '@/test/repositories'
 import DeckView from '@/views/DeckView.vue'
@@ -143,5 +145,41 @@ describe('DeckView', () => {
     expect(wrapper.get<HTMLTextAreaElement>('[data-testid="bulk-text"]').element.value).toBe(
       'ser|to be',
     )
+  })
+
+  describe('starting a quiz', () => {
+    it('quickstarts this deck on the defaults of spec §6.1', async () => {
+      await repositories.cards.create(deckId, { front: 'ser', back: 'to be' }, 1000)
+      const wrapper = await mountView()
+      const quiz = useQuizStore()
+
+      await wrapper.get('[data-testid="deck-quiz"]').trigger('click')
+      await vi.waitUntil(() => quiz.phase === 'running')
+
+      expect(quiz.direction).toBe('front')
+      expect(quiz.cards).toHaveLength(1)
+      expect(quiz.origin).toEqual({ name: 'deck', params: { deckId } })
+    })
+
+    it('will not quickstart a deck with no cards', async () => {
+      const wrapper = await mountView()
+
+      const button = wrapper.get('[data-testid="deck-quiz"]')
+      await button.trigger('click')
+      await flushPromises()
+
+      expect(button.attributes('aria-disabled')).toBe('true')
+      expect(useQuizStore().phase).toBe('configuring')
+    })
+
+    it('offers a custom quiz over this deck', async () => {
+      const wrapper = await mountView()
+
+      const link = wrapper.getComponent<typeof RouterLinkStub>('[data-testid="deck-custom-quiz"]')
+      expect(link.props('to')).toEqual({
+        name: 'quiz-configure',
+        query: { deck: deckId },
+      })
+    })
   })
 })
