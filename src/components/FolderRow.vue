@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import { computed, useId } from 'vue'
 import type { Folder } from '@/domain/models'
 import { countLabel } from '@/domain/prompts'
 
 /** One row of the home screen (§7.1). The mastery bar arrives with item 09. */
-defineProps<{
+const props = defineProps<{
   folder: Folder
   deckCount: number
   cardCount: number
@@ -11,7 +12,15 @@ defineProps<{
   deletable: boolean
 }>()
 
-defineEmits<{ rename: []; delete: [] }>()
+const emit = defineEmits<{ rename: []; delete: []; quiz: [] }>()
+
+/** A folder with no cards anywhere in it has nothing to quiz (ADR-031). */
+const quizzable = computed(() => props.cardCount > 0)
+const reasonId = useId()
+
+function quiz(): void {
+  if (quizzable.value) emit('quiz')
+}
 </script>
 
 <template>
@@ -34,6 +43,18 @@ defineEmits<{ rename: []; delete: [] }>()
     <div class="is-flex is-flex-shrink-0 is-gap-1">
       <button
         type="button"
+        class="button is-primary is-light cardio-action"
+        :class="{ 'is-static': !quizzable }"
+        :aria-disabled="quizzable ? 'false' : 'true'"
+        :aria-describedby="reasonId"
+        :title="quizzable ? undefined : 'This folder has no cards to quiz yet.'"
+        data-testid="folder-quiz"
+        @click="quiz"
+      >
+        Quiz
+      </button>
+      <button
+        type="button"
         class="button is-ghost cardio-action"
         data-testid="folder-rename"
         @click="$emit('rename')"
@@ -50,5 +71,12 @@ defineEmits<{ rename: []; delete: [] }>()
         Delete
       </button>
     </div>
+    <span :id="reasonId" class="is-sr-only">
+      {{
+        quizzable
+          ? `Quiz every deck in ${folder.name}: ${countLabel(cardCount, 'card')}.`
+          : 'This folder has no cards to quiz yet.'
+      }}
+    </span>
   </div>
 </template>

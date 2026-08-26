@@ -1,17 +1,21 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import FolderRow from '@/components/FolderRow.vue'
 import NameDialog from '@/components/NameDialog.vue'
 import type { Folder } from '@/domain/models'
 import { deleteFolderPrompt } from '@/domain/prompts'
 import { useLibraryStore } from '@/stores/library'
+import { useQuizStore } from '@/stores/quiz'
 
 /** The home screen: every folder, with what it holds (§7.1). */
 type Dialog =
   { kind: 'create' } | { kind: 'rename'; folder: Folder } | { kind: 'delete'; folder: Folder }
 
 const library = useLibraryStore()
+const quiz = useQuizStore()
+const router = useRouter()
 const dialog = ref<Dialog | null>(null)
 /** Why the open dialog's last submit was refused. Cleared whenever one opens. */
 const dialogError = ref<string | null>(null)
@@ -40,6 +44,12 @@ async function submitName(name: string): Promise<void> {
       : await library.renameFolder(open.folder.id, name)
   if (saved) openDialog(null)
   else dialogError.value = library.error
+}
+
+/** Quickstart across every deck in the folder, on the §6.1 defaults (§7.1). */
+async function quizFolder(folderId: string): Promise<void> {
+  const deckIds = library.decksIn(folderId).map((deck) => deck.id)
+  if (await quiz.quickstart(deckIds, { name: 'home' })) await router.push({ name: 'quiz-run' })
 }
 
 async function confirmDelete(): Promise<void> {
@@ -82,6 +92,7 @@ async function confirmDelete(): Promise<void> {
         :deck-count="library.countsFor(folder.id).decks"
         :card-count="library.countsFor(folder.id).cards"
         :deletable="library.canDeleteFolder(folder.id)"
+        @quiz="quizFolder(folder.id)"
         @rename="openDialog({ kind: 'rename', folder })"
         @delete="openDialog({ kind: 'delete', folder })"
       />

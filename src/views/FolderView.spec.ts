@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
+import { routes } from '@/router'
 import { seedDefaults, UNSORTED_FOLDER_ID } from '@/db'
 import { useLibraryStore } from '@/stores/library'
+import { useQuizStore } from '@/stores/quiz'
 import { repositories } from '@/stores/repositories'
 import { useTestDatabase } from '@/test/repositories'
 import FolderView from '@/views/FolderView.vue'
@@ -18,9 +21,14 @@ describe('FolderView', () => {
 
   async function mountView(folderId: string): Promise<VueWrapper> {
     const store = useLibraryStore()
+    // The screen navigates when a quiz starts, so it needs a real router even
+    // though its links are stubbed for the assertions below.
+    const router = createRouter({ history: createMemoryHistory(), routes })
+    await router.push('/')
+    await router.isReady()
     const wrapper = mount(FolderView, {
       props: { folderId },
-      global: { stubs: { RouterLink: RouterLinkStub } },
+      global: { plugins: [router], stubs: { RouterLink: RouterLinkStub } },
       attachTo: document.body,
     })
     await vi.waitUntil(() => !store.loading)
@@ -153,5 +161,76 @@ describe('FolderView', () => {
     await wrapper.get('[data-testid="confirm-accept"]').trigger('click')
 
     await vi.waitFor(() => expect(rows(wrapper)).toHaveLength(0))
+  })
+
+  describe('starting a quiz', () => {
+    async function folderWithDeck(cards: number): Promise<{ folderId: string; deckId: string }> {
+      const folder = await repositories.folders.create('Spanish', 1000)
+      const deck = await repositories.decks.create(folder.id, 'Verbs', 1000)
+      for (let i = 0; i < cards; i++) {
+        await repositories.cards.create(deck.id, { front: `q${i}`, back: `a${i}` }, 1000)
+      }
+      return { folderId: folder.id, deckId: deck.id }
+    }
+
+    it('quickstarts a deck on the defaults of spec §6.1', async () => {
+      localStorage.setItem(
+        'cardio.quizConfig',
+        JSON.stringify({ deckIds: [], direction: 'back', tier: 7, size: 50 }),
+      )
+      const { folderId } = await folderWithDeck(3)
+      const wrapper = await mountView(folderId)
+      const quiz = useQuizStore()
+
+      await wrapper.get('[data-testid="deck-quiz"]').trigger('click')
+      await vi.waitUntil(() => quiz.phase === 'running')
+
+      expect(quiz.direction).toBe('front')
+      expect(quiz.cards).toHaveLength(3)
+      localStorage.clear()
+    })
+
+    it('sends a finished quiz back to this folder', async () => {
+      const { folderId } = await folderWithDeck(1)
+      const wrapper = await mountView(folderId)
+      const quiz = useQuizStore()
+
+      await wrapper.get('[data-testid="deck-quiz"]').trigger('click')
+      await vi.waitUntil(() => quiz.phase === 'running')
+
+      expect(quiz.origin).toEqual({ name: 'folder', params: { folderId } })
+    })
+
+    it('will not quickstart a deck with no cards', async () => {
+      const { folderId } = await folderWithDeck(0)
+      const wrapper = await mountView(folderId)
+
+      const button = wrapper.get('[data-testid="deck-quiz"]')
+      await button.trigger('click')
+      await flushPromises()
+
+      expect(button.attributes('aria-disabled')).toBe('true')
+      expect(useQuizStore().phase).toBe('configuring')
+    })
+
+    it('says why an empty deck cannot be quizzed, where a screen reader will find it', async () => {
+      const { folderId } = await folderWithDeck(0)
+      const wrapper = await mountView(folderId)
+
+      const button = wrapper.get('[data-testid="deck-quiz"]')
+      const reason = wrapper.get(`#${button.attributes('aria-describedby')}`)
+      expect(reason.text()).toContain('no cards')
+    })
+
+    it('offers a custom quiz over this folder', async () => {
+      const { folderId } = await folderWithDeck(1)
+      const wrapper = await mountView(folderId)
+
+      const link = wrapper.getComponent<typeof RouterLinkStub>('[data-testid="folder-custom-quiz"]')
+      expect(link.props('to')).toEqual({
+        name: 'quiz-configure',
+        query: { folder: folderId },
+      })
+    })
   })
 })

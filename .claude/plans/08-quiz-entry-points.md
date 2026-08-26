@@ -1,6 +1,6 @@
 # 08 — Quiz entry points
 
-Status: not started
+Status: done
 Depends on: 07
 Spec: §6.1, §6.2, §7.2, §7.5
 
@@ -34,11 +34,15 @@ Every way into a quiz: one-tap quickstart from a deck or folder, and the custom 
 
 ## Acceptance
 
-- [ ] Deck quickstart, folder quickstart and custom quiz all reach a running session.
-- [ ] Defaults are exactly those in spec §6.1.
-- [ ] Config round-trips through `localStorage`; corrupt stored JSON falls back to
+- [x] Deck quickstart, folder quickstart and custom quiz all reach a running session.
+- [x] Defaults are exactly those in spec §6.1.
+- [x] Config round-trips through `localStorage`; corrupt stored JSON falls back to
       defaults instead of throwing.
 - [ ] `npm run verify` green; `PlaceholderPanel.vue` is now deleted.
+      **Not met, and not worked around.** `npm run verify` is green, but
+      `PlaceholderPanel.vue` cannot go yet: `SettingsView.vue` still renders it, and the
+      settings screen is item 10. Deleting the component now would leave `/settings`
+      with nothing to show. Delete it with the last usage, in item 10.
 
 ## Out of scope
 

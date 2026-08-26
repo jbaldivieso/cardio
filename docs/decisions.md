@@ -378,3 +378,83 @@ about the element's contents.
 **Consequence.** `cursor: pointer` (`.cardio-tappable`) carries the affordance for
 pointer users. Anyone tempted to "fix" the missing role should read this first: the
 keyboard path is Edit, and it is tested.
+
+## ADR-028 — The slider's middle three tiers needed labels §6.2 does not give
+
+**Decision.** `tierLabel` returns, for tiers 1–7: "Only what I don't know", "Mostly
+unmastered", "Leaning unmastered", "A mix of both", "Leaning mastered", "Mostly
+mastered", "Only what I know".
+
+**Why.** §6.2's table labels only tiers 1, 2, 6 and 7; tier 4's cell reads "Default",
+which designates the starting position rather than describing the mix, and tiers 3 and 5
+are blank. A seven-stop slider has to say something at every stop — §7.5 shows the label
+beside it and item 08 asserts `aria-valuetext` — so the three gaps are filled with a
+scale that reads monotonically from one hard filter to the other.
+
+**Why not "Balanced" at tier 4.** Tier 4 is 60/40 unmastered-leaning on purpose
+(ADR-006). Calling it balanced would advertise the even split that decision explicitly
+declined to offer, so "A mix of both" says what is true without claiming 50/50.
+
+**Consequence.** The four labels §6.2 does give are verbatim; the other three are ours,
+and are the string the slider announces. Changing one is a UI copy change, not a spec
+deviation.
+
+## ADR-029 — §6.4 is written once, in the domain, and the repository wraps it
+
+**Decision.** `cardRepo.recordAttempt` computes the new statistics by calling
+`recordAnswer` from `src/domain/quiz.ts` rather than re-deriving them; its own job is
+the transaction, the history cap and leaving `updatedAt` alone.
+
+**Why.** The repository landed in item 01, before the domain had a §6.4 function, so it
+carried its own copy of the counter-and-history rule. Item 06 then delivered
+`recordAnswer` as the canonical one. Two implementations of the same paragraph is one
+too many: the next change to the rule — a different cap, a third outcome — would have
+had to find both.
+
+**Consequence.** `src/db/` imports from `src/domain/`, which is the direction the
+architecture already allows (it does so for `models` and `validation`). The store writes
+answers through `recordAttempt`, so the read-modify-write stays inside one Dexie
+transaction and no in-memory copy can clobber a counter.
+
+## ADR-030 — The quiz card is a tappable container, not a button
+
+**Decision.** `QuizCard`'s flip surface is a plain element with a click handler and
+`cursor: pointer`. `Space` and `Enter` reach it through a document-level `keydown`
+listener, which also carries the `1` / `←` / `2` / `→` grading shortcuts of §7.6.
+
+**Why.** §7.6 asks that tap, click, `Space` and `Enter` all flip the card. The obvious
+way — make the card a `<button>` — nests whatever the face's markdown rendered (links,
+lists) inside a button, which is the same problem ADR-027 settled for the card row, only
+worse here because the face is the whole screen. A document listener gives the keyboard
+the same four inputs without lying about the element's contents, and it is what makes
+grading reachable from the keyboard at all, since §7.6 wants no reveal button to focus.
+
+**Consequence.** The listener is global while a card is mounted, so anything drawn on
+top of the quiz has to say so: `keyboardActive` is false while the leave confirmation is
+open, and `QuizRunView` is the one place that sets it. A future overlay over the running
+quiz must do the same.
+
+It also has to stand aside for whatever the user has tabbed to. Exit and Undo sit beside
+the card the whole time, and the nav bar is above it; cancelling their `Space` or `Enter`
+would flip the card instead of pressing them, which strands a keyboard-only user in the
+quiz. `QuizCard` therefore ignores `Space` and `Enter` that arrive from anything
+activatable, and ignores the grading keys only inside a field the user can type in — a
+button has no use for `1` or `←`, so grading still works with the focus on **Got it**.
+
+## ADR-031 — A gated action says `aria-disabled`, not `disabled`
+
+**Decision.** The quickstart buttons on a deck row, a folder row and the deck screen, and
+**Start quiz** on the configure screen, carry `aria-disabled="true"` and Bulma's
+`is-static` when they cannot run. They keep the `disabled` attribute off, stay in the tab
+order, and each points at a visually hidden sentence with `aria-describedby` saying why.
+Their handlers return early, so a click does nothing.
+
+**Why.** §7.2 asks that quickstart be "disabled with a tooltip when the deck has no
+cards", and item 08 asks that the reason reach a screen reader. A truly `disabled`
+button satisfies neither half: it cannot be focused, so its `title` never appears and its
+description is never announced — the control simply goes quiet, and the user is left to
+guess what is wrong with the deck.
+
+**Consequence.** Every gated action needs its own guard in the handler, because the
+browser no longer enforces one for us. The `is-sr-only` sentence carries the reason in
+both states, so the description is useful once the deck has cards too.

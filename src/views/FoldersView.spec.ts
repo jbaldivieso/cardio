@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
+import { routes } from '@/router'
 import { seedDefaults, UNSORTED_FOLDER_ID } from '@/db'
 import { useLibraryStore } from '@/stores/library'
+import { useQuizStore } from '@/stores/quiz'
 import { repositories } from '@/stores/repositories'
 import { useTestDatabase } from '@/test/repositories'
 import FoldersView from '@/views/FoldersView.vue'
@@ -17,8 +20,13 @@ describe('FoldersView', () => {
 
   async function mountView(): Promise<VueWrapper> {
     const store = useLibraryStore()
+    // The screen navigates when a quiz starts, so it needs a real router even
+    // though its links are stubbed.
+    const router = createRouter({ history: createMemoryHistory(), routes })
+    await router.push('/')
+    await router.isReady()
     const wrapper = mount(FoldersView, {
-      global: { stubs: { RouterLink: RouterLinkStub } },
+      global: { plugins: [router], stubs: { RouterLink: RouterLinkStub } },
       attachTo: document.body,
     })
     // The first read opens the database, which fake-indexeddb resolves over
@@ -159,5 +167,41 @@ describe('FoldersView', () => {
     const wrapper = await mountView()
 
     expect(wrapper.get('[data-testid="library-error"]').text()).toContain('IndexedDB is gone.')
+  })
+
+  describe('starting a quiz', () => {
+    it('pools every deck in the folder', async () => {
+      await seedDefaults(test.db, 1000)
+      const folder = await repositories.folders.create('Spanish', 1000)
+      const verbs = await repositories.decks.create(folder.id, 'Verbs', 1000)
+      const nouns = await repositories.decks.create(folder.id, 'Nouns', 1000)
+      const elsewhere = await repositories.decks.create(UNSORTED_FOLDER_ID, 'Other', 1000)
+      await repositories.cards.create(verbs.id, { front: 'ser', back: 'to be' }, 1000)
+      await repositories.cards.create(nouns.id, { front: 'casa', back: 'house' }, 1000)
+      await repositories.cards.create(elsewhere.id, { front: 'nein', back: 'no' }, 1000)
+      const wrapper = await mountView()
+      const quiz = useQuizStore()
+
+      const spanish = rows(wrapper).find((row) => row.text().includes('Spanish'))
+      await spanish?.get('[data-testid="folder-quiz"]').trigger('click')
+      await vi.waitUntil(() => quiz.phase === 'running')
+
+      expect(quiz.cards.map((card) => card.deckId).sort()).toEqual([nouns.id, verbs.id].sort())
+      expect(quiz.direction).toBe('front')
+    })
+
+    it('will not quickstart a folder with no cards in it', async () => {
+      await seedDefaults(test.db, 1000)
+      await repositories.folders.create('Spanish', 1000)
+      const wrapper = await mountView()
+
+      const spanish = rows(wrapper).find((row) => row.text().includes('Spanish'))
+      const button = spanish?.get('[data-testid="folder-quiz"]')
+      await button?.trigger('click')
+      await flushPromises()
+
+      expect(button?.attributes('aria-disabled')).toBe('true')
+      expect(useQuizStore().phase).toBe('configuring')
+    })
   })
 })
