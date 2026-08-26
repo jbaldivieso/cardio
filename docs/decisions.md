@@ -291,3 +291,37 @@ into every view spec purely to supply one string.
 **Consequence.** Views declare exactly what they need from the URL, and a missing or
 unknown id is handled in one place — the "that folder is not here" branch — rather than
 depending on what the router happened to put in `params`.
+
+## ADR-023 — The markdown cache is a general memoiser, not private state
+
+**Decision.** `src/domain/memoise.ts` provides `memoise(compute, limit)`, a bounded
+least-recently-used cache around a pure function. `renderMarkdown` is that function applied
+to markdown-it with a 500-entry limit (§8).
+
+**Why.** §8 asks for memoisation _and_ a bound, but a bound has no observable effect through
+`renderMarkdown`: strings compare by value, so a cache hit and a re-render are
+indistinguishable from outside. Keeping the cache private would have left "bounded" either
+untested or tested through a hook that exists only for tests. As its own function it is
+testable the honest way — a spy counts how often the wrapped function actually runs, which
+is what proves both the caching and the eviction.
+
+**Consequence.** One more domain module, reusable for item 09's per-deck summaries, which
+have the same shape of problem. `Map` insertion order is what makes the LRU work: reading an
+entry deletes and re-sets it, so the oldest key is always the first one out.
+
+## ADR-024 — The cards store does not write back into the library's counts
+
+**Decision.** `src/stores/cards.ts` owns the card list of the deck on screen. Adding or
+deleting a card does not adjust the deck and folder counts held by `src/stores/library.ts`.
+
+**Why.** Every screen calls `load()` on mount, so the counts a user sees after navigating
+back are read from the database, not from whatever a previous screen remembered. Wiring the
+cards store into the library's counters would add a second way for those numbers to be
+right, and a way for them to drift — the count would then have two authors, one of which
+(the loader) periodically overwrites the other.
+
+**Consequence.** The two stores stay independent, and neither imports the other. The counts
+are as fresh as the last mount, which for a single-user offline app with no background
+writer is always. If a future screen ever shows a live count beside a card list without
+remounting, it should read `cards.cards.length` rather than have the cards store push a
+number sideways.

@@ -25,3 +25,8 @@ export function deleteDeckPrompt(name: string, cards: number): string {
   const removes = cards === 0 ? '' : ` This removes ${countLabel(cards, 'card')}.`
   return `Delete “${name}”?${removes} This cannot be undone.`
 }
+
+/** A card has nothing to count, so the confirmation is only the warning. */
+export function deleteCardPrompt(): string {
+  return 'Delete this card? This cannot be undone.'
+}

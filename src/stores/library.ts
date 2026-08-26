@@ -3,16 +3,13 @@ import { computed, ref } from 'vue'
 import { UNSORTED_FOLDER_ID } from '@/db'
 import { byName } from '@/db/sorting'
 import type { Deck, Folder } from '@/domain/models'
+import { useErrorSurface } from '@/stores/errors'
 import { repositories } from '@/stores/repositories'
 
 /** What deleting a folder would take with it, and what its row shows (§7.1). */
 export interface FolderCounts {
   decks: number
   cards: number
-}
-
-function messageOf(cause: unknown): string {
-  return cause instanceof Error && cause.message ? cause.message : 'Something went wrong.'
 }
 
 /**
@@ -26,7 +23,7 @@ export const useLibraryStore = defineStore('library', () => {
   /** Cards per deck id. Counted at load time rather than per render (§13). */
   const cardCounts = ref<Record<string, number>>({})
   const loading = ref(false)
-  const error = ref<string | null>(null)
+  const { error, attempt } = useErrorSurface()
 
   /** One pass over the decks, so a folder list of any length costs one walk. */
   const folderCounts = computed(() => {
@@ -65,21 +62,6 @@ export const useLibraryStore = defineStore('library', () => {
   /** Unsorted is the one folder the UI must not offer to delete (§4.2). */
   function canDeleteFolder(folderId: string): boolean {
     return folderId !== UNSORTED_FOLDER_ID
-  }
-
-  /**
-   * Runs one repository call, turning a rejection into a message the screen can
-   * show. A failed action leaves the state exactly as it was: nothing is applied
-   * optimistically, so there is nothing to roll back.
-   */
-  async function attempt<T>(work: () => Promise<T>): Promise<T | undefined> {
-    error.value = null
-    try {
-      return await work()
-    } catch (cause) {
-      error.value = messageOf(cause)
-      return undefined
-    }
   }
 
   async function load(): Promise<void> {

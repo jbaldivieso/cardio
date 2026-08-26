@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { countLabel, deleteDeckPrompt, deleteFolderPrompt } from '@/domain/prompts'
+import {
+  countLabel,
+  deleteCardPrompt,
+  deleteDeckPrompt,
+  deleteFolderPrompt,
+} from '@/domain/prompts'
 
 describe('countLabel', () => {
   it('pluralises a count of more than one', () => {
@@ -50,5 +55,11 @@ describe('deleteDeckPrompt', () => {
 
   it('leaves out the count when the deck is empty', () => {
     expect(deleteDeckPrompt('Verbs', 0)).toBe('Delete “Verbs”? This cannot be undone.')
+  })
+})
+
+describe('deleteCardPrompt', () => {
+  it('warns that a card deletion cannot be undone', () => {
+    expect(deleteCardPrompt()).toBe('Delete this card? This cannot be undone.')
   })
 })

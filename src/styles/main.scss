@@ -43,3 +43,12 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+// A card front on the deck screen is a preview, not the card (§7.3).
+.cardio-clamp-2 {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
