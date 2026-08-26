@@ -1,6 +1,6 @@
 # 03 — Folder CRUD
 
-Status: not started
+Status: done
 Depends on: 01
 Spec: §7.1 (home), §4.4 (deletion), §7 (conventions)
 
@@ -31,13 +31,25 @@ The home screen: see your folders with counts, create, rename and delete them.
 
 ## Acceptance
 
-- [ ] Create, rename, delete work against IndexedDB and survive a reload.
-- [ ] Delete confirmation names the deck and card counts (§4.4 wording).
-- [ ] Unsorted cannot be deleted from the UI.
-- [ ] Rows link to `/folders/:id`; `data-testid`s on rows, actions and the empty state.
-- [ ] Mobile layout: no horizontal scroll at 360 px wide.
+- [x] Create, rename, delete work against IndexedDB and survive a reload.
+- [x] Delete confirmation names the deck and card counts (§4.4 wording).
+- [x] Unsorted cannot be deleted from the UI.
+- [x] Rows link to `/folders/:id`; `data-testid`s on rows, actions and the empty state.
+- [x] Mobile layout: no horizontal scroll at 360 px wide.
 
 ## Out of scope
 
 Mastery bars (item 09) — leave the space, no placeholder graphic. Folder-level quiz
 button (item 08).
+
+## Notes
+
+- Folder actions are named `createFolder` / `renameFolder` / `removeFolder` rather than
+  the plan's bare `create` / `rename` / `remove`, so they sit alongside item 04's
+  `createDeck` / `moveDeck` in the same store.
+- Two files beyond the deliverables list: `src/stores/repositories.ts`, the seam that
+  lets a spec point the stores at a throwaway database (ADR-020), and
+  `src/domain/prompts.ts`, which holds the §4.4 confirmation wording as a pure function
+  so the exact sentence is assertable without mounting a dialog (ADR-021). Item 04 adds
+  the deck prompt beside it.
+- Counts come from the loaded state rather than `folderRepo.contents()`; see ADR-021.

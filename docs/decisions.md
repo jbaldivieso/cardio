@@ -237,3 +237,42 @@ that exists only for tests.
 
 **Consequence.** A failed write never triggers the request, and a missing or rejecting
 Storage API resolves to `false` rather than failing the write that triggered it.
+
+## ADR-020 — Stores reach their repositories through one swappable record
+
+**Decision.** Stores import `repositories` from `src/stores/repositories.ts` — a single
+record holding the `folderRepo`, `deckRepo` and `cardRepo` singletons — rather than
+importing each singleton directly. `src/test/repositories.ts` swaps its three entries for
+repositories bound to a per-spec `CardioDb` and restores them afterwards.
+
+**Why.** Every spec needs its own database name (CLAUDE.md > Gotchas), but the singletons
+are bound to the real `db` at import time. The alternatives were worse: `vi.mock` of three
+modules in every store and component spec, repeated per file and re-resolving the mocked
+binding on each access; or fake repositories, which would have tested the store against a
+stub instead of against Dexie, leaving "create persists" unproven. With the record, store
+and component specs exercise the real repositories over `fake-indexeddb`, so a store test
+that writes and reloads really does prove persistence.
+
+**Consequence.** One mutable module-level record exists that application code only reads.
+Component specs get the same seam for free, which is what lets `FoldersView.spec.ts` mount
+the real view over a real database. Specs that mount a view must wait for the database to
+open — `fake-indexeddb` resolves its first read over several turns of the event loop, so
+`flushPromises()` alone is not enough and `vi.waitUntil` / `vi.waitFor` are used instead.
+
+## ADR-021 — Confirmation wording is a pure function, over counts already in the store
+
+**Decision.** `src/domain/prompts.ts` builds the §4.4 sentence
+(`deleteFolderPrompt`, `countLabel`); the counts it is given come from the library store's
+single pass over the loaded decks, not from a `folderRepo.contents()` query per row.
+
+**Why.** The exact wording is an acceptance criterion, and a pure function makes it
+assertable without mounting a dialog — pluralisation included, which is the part that
+would otherwise be untested logic inside an SFC. The counts are already loaded to render
+each row ("2 decks · 6 cards"), so querying them again on the way into the dialog would
+be a second source of truth for the same number, and an async step between the click and
+the dialog opening.
+
+**Consequence.** `folderRepo.contents()` is currently unused by the app. It stays as the
+repository-level answer to the same question, which item 10's export path can use.
+A confirmation is only as fresh as the last `load()`; for a single-user offline app with
+no background writer, that is exactly as fresh as the row the user just clicked.

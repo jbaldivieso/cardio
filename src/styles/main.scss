@@ -23,3 +23,23 @@
     --cardio-flip-duration: 0ms;
   }
 }
+
+// Spec §7: every interactive target is at least 44×44 CSS px. Bulma's default
+// button is 2.5em tall, which is a few pixels short on a phone.
+.cardio-action {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+// Bulma sizes `.delete` from this variable, so the modal close button becomes a
+// real touch target without fighting the element's own rules.
+.cardio-close {
+  --bulma-delete-dimensions: 44px;
+}
+
+// A long folder or deck name wraps instead of pushing its row's actions off the
+// side of a 360 px screen.
+.cardio-row-main {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
