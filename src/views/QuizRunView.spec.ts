@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import type { Router } from 'vue-router'
@@ -17,6 +17,11 @@ describe('QuizRunView', () => {
   let router: Router
   let deckId: string
   let pool: Card[]
+  /**
+   * Unmounted between tests: `QuizCard` listens on the document (ADR-030), so a
+   * wrapper left attached would keep grading cards in the tests that follow.
+   */
+  let mounted: VueWrapper | null = null
 
   const config: QuizConfig = { deckIds: [], direction: 'front', tier: 4, size: 20 }
 
@@ -31,6 +36,11 @@ describe('QuizRunView', () => {
     pool = await repositories.cards.listByDecks([deckId])
   })
 
+  afterEach(() => {
+    mounted?.unmount()
+    mounted = null
+  })
+
   /** Renders the real route, so the leave guard of §6.5 is the one under test. */
   async function mountRun(): Promise<VueWrapper> {
     await router.push({ name: 'quiz-run' })
@@ -40,6 +50,7 @@ describe('QuizRunView', () => {
       { global: { plugins: [router] }, attachTo: document.body },
     )
     await flushPromises()
+    mounted = wrapper
     return wrapper
   }
 
@@ -156,6 +167,34 @@ describe('QuizRunView', () => {
     expect(store.current?.id).toBe(first.id)
     expect(store.answers).toEqual([])
     expect((await repositories.cards.get(first.id))?.stats.gets).toBe(0)
+  })
+
+  /**
+   * §7.6 wants the whole card to answer Space and Enter, and ADR-030 makes that
+   * a document listener — which has to stand aside for the two buttons that sit
+   * beside the card, or a keyboard-only user can neither exit nor undo.
+   */
+  it('asks before leaving when Exit is pressed with the keyboard', async () => {
+    const wrapper = await startAndMount()
+    const exit = wrapper.get('[data-testid="quiz-exit"]')
+
+    await exit.trigger('keydown', { key: 'Enter' })
+    await exit.trigger('click')
+    await flushPromises()
+
+    expect(useQuizStore().flipped).toBe(false)
+    expect(wrapper.find('[data-testid="confirm-dialog"]').exists()).toBe(true)
+  })
+
+  it('leaves Space to Undo rather than flipping the card behind it', async () => {
+    const wrapper = await startAndMount()
+
+    await answerByClick(wrapper, true)
+    await wrapper.get('[data-testid="quiz-undo"]').trigger('keydown', { key: ' ' })
+
+    // A flip here means the card swallowed the key, and the browser cancelled
+    // the press that would have undone the answer.
+    expect(useQuizStore().flipped).toBe(false)
   })
 
   it('asks before leaving a running quiz', async () => {

@@ -32,6 +32,14 @@ describe('QuizCard', () => {
     await wrapper?.vm.$nextTick()
   }
 
+  /** The same key, but pressed while `from` has the focus, as a Tab would leave it. */
+  async function pressFrom(from: Element, key: string): Promise<KeyboardEvent> {
+    const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })
+    from.dispatchEvent(event)
+    await wrapper?.vm.$nextTick()
+    return event
+  }
+
   afterEach(() => {
     wrapper?.unmount()
     wrapper = null
@@ -196,6 +204,57 @@ describe('QuizCard', () => {
 
       await press('1')
       await press('2')
+
+      expect(shown.emitted('grade')).toBeUndefined()
+    })
+  })
+
+  /**
+   * The shortcuts live on the document (ADR-030), so they have to stand aside
+   * for whatever the user has actually tabbed to — Exit and Undo are on screen
+   * throughout, and cancelling their key would strand a keyboard-only user.
+   */
+  describe('when another control has the focus', () => {
+    function control(): HTMLButtonElement {
+      const button = document.createElement('button')
+      button.textContent = 'Exit'
+      document.body.append(button)
+      return button
+    }
+
+    let focused: HTMLButtonElement | null = null
+
+    afterEach(() => {
+      focused?.remove()
+      focused = null
+    })
+
+    it.each([' ', 'Enter'])('leaves %s to the focused button rather than flipping', async (key) => {
+      const shown = mountCard({ flipped: false })
+      focused = control()
+
+      const event = await pressFrom(focused, key)
+
+      expect(shown.emitted('flip')).toBeUndefined()
+      expect(event.defaultPrevented).toBe(false)
+    })
+
+    it('still grades from a button, which has no use for the grading keys', async () => {
+      const shown = mountCard({ flipped: true })
+      focused = control()
+
+      await pressFrom(focused, '2')
+
+      expect(shown.emitted('grade')).toEqual([[true]])
+    })
+
+    it('leaves the grading keys to a field the user can type in', async () => {
+      const shown = mountCard({ flipped: true })
+      const field = document.createElement('input')
+      document.body.append(field)
+
+      await pressFrom(field, '1')
+      field.remove()
 
       expect(shown.emitted('grade')).toBeUndefined()
     })

@@ -434,6 +434,13 @@ top of the quiz has to say so: `keyboardActive` is false while the leave confirm
 open, and `QuizRunView` is the one place that sets it. A future overlay over the running
 quiz must do the same.
 
+It also has to stand aside for whatever the user has tabbed to. Exit and Undo sit beside
+the card the whole time, and the nav bar is above it; cancelling their `Space` or `Enter`
+would flip the card instead of pressing them, which strands a keyboard-only user in the
+quiz. `QuizCard` therefore ignores `Space` and `Enter` that arrive from anything
+activatable, and ignores the grading keys only inside a field the user can type in — a
+button has no use for `1` or `←`, so grading still works with the focus on **Got it**.
+
 ## ADR-031 — A gated action says `aria-disabled`, not `disabled`
 
 **Decision.** The quickstart buttons on a deck row, a folder row and the deck screen, and

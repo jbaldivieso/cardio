@@ -38,8 +38,23 @@ function reveal(): void {
   if (!props.flipped) emit('flip')
 }
 
+/**
+ * The controls a key is already spoken for by. The shortcuts are
+ * document-level (ADR-030), so without this, `Enter` on the Exit button or
+ * `Space` on Undo would be cancelled here and flip the card instead of
+ * pressing them. `Space` and `Enter` activate anything focusable; the grading
+ * keys only mean something else inside a field you can type in.
+ */
+function claimedByFocus(key: string, target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false
+  const activatable = 'a[href], button, input, select, textarea, summary, [contenteditable]'
+  const typeable = 'input, select, textarea, [contenteditable]'
+  return target.closest(key === ' ' || key === 'Enter' ? activatable : typeable) !== null
+}
+
 function onKeydown(event: KeyboardEvent): void {
   if (!props.keyboardActive || event.metaKey || event.ctrlKey || event.altKey) return
+  if (claimedByFocus(event.key, event.target)) return
 
   if (!props.flipped) {
     if (event.key !== ' ' && event.key !== 'Enter') return
