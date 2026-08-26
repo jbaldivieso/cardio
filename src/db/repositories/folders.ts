@@ -14,8 +14,8 @@ export interface FolderContents {
 export interface FolderRepo {
   list(): Promise<Folder[]>
   get(id: string): Promise<Folder | undefined>
-  create(name: string, now?: number): Promise<Folder>
-  rename(id: string, name: string, now?: number): Promise<Folder>
+  create(name: string, now: number): Promise<Folder>
+  rename(id: string, name: string, now: number): Promise<Folder>
   /** Hard, cascading delete (§4.4). Silent when the folder is already gone. */
   remove(id: string): Promise<void>
   contents(id: string): Promise<FolderContents>
@@ -31,7 +31,7 @@ export function createFolderRepo(database: CardioDb = db): FolderRepo {
       return database.folders.get(id)
     },
 
-    async create(name: string, now: number = Date.now()): Promise<Folder> {
+    async create(name: string, now: number): Promise<Folder> {
       const folder: Folder = {
         id: crypto.randomUUID(),
         name: validateName(name),
@@ -42,7 +42,7 @@ export function createFolderRepo(database: CardioDb = db): FolderRepo {
       return folder
     },
 
-    async rename(id: string, name: string, now: number = Date.now()): Promise<Folder> {
+    async rename(id: string, name: string, now: number): Promise<Folder> {
       const validated = validateName(name)
       return durableWrite(database, () =>
         database.transaction('rw', database.folders, async () => {

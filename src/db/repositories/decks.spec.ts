@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { CardioDb } from '@/db'
-import { createDeckRepo } from '@/db/decks'
+import { createDeckRepo } from '@/db/repositories/decks'
 import { emptyStats } from '@/domain/models'
 import { ValidationError } from '@/domain/validation'
 

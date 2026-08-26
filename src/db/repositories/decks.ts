@@ -10,9 +10,9 @@ export interface DeckRepo {
   list(): Promise<Deck[]>
   listByFolder(folderId: string): Promise<Deck[]>
   get(id: string): Promise<Deck | undefined>
-  create(folderId: string, name: string, now?: number): Promise<Deck>
-  rename(id: string, name: string, now?: number): Promise<Deck>
-  move(id: string, folderId: string, now?: number): Promise<Deck>
+  create(folderId: string, name: string, now: number): Promise<Deck>
+  rename(id: string, name: string, now: number): Promise<Deck>
+  move(id: string, folderId: string, now: number): Promise<Deck>
   /** Hard, cascading delete (§4.4). Silent when the deck is already gone. */
   remove(id: string): Promise<void>
   cardCount(id: string): Promise<number>
@@ -44,7 +44,7 @@ export function createDeckRepo(database: CardioDb = db): DeckRepo {
       return database.decks.get(id)
     },
 
-    async create(folderId: string, name: string, now: number = Date.now()): Promise<Deck> {
+    async create(folderId: string, name: string, now: number): Promise<Deck> {
       const validated = validateName(name)
       return durableWrite(database, () =>
         database.transaction('rw', database.folders, database.decks, async () => {
@@ -62,7 +62,7 @@ export function createDeckRepo(database: CardioDb = db): DeckRepo {
       )
     },
 
-    async rename(id: string, name: string, now: number = Date.now()): Promise<Deck> {
+    async rename(id: string, name: string, now: number): Promise<Deck> {
       const validated = validateName(name)
       return durableWrite(database, () =>
         database.transaction('rw', database.decks, async () => {
@@ -73,7 +73,7 @@ export function createDeckRepo(database: CardioDb = db): DeckRepo {
       )
     },
 
-    async move(id: string, folderId: string, now: number = Date.now()): Promise<Deck> {
+    async move(id: string, folderId: string, now: number): Promise<Deck> {
       return durableWrite(database, () =>
         database.transaction('rw', database.folders, database.decks, async () => {
           const deck = await requireDeck(id)

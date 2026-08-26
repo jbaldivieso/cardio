@@ -9,7 +9,7 @@ export function byName<T extends { name: string }>(a: T, b: T): number {
   return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
 }
 
-/** Oldest first, so a deck reads in the order its cards were added. */
-export function byCreatedAt<T extends { createdAt: number }>(a: T, b: T): number {
-  return a.createdAt - b.createdAt
+/** Newest first, so a card just added is at the top of its deck rather than buried. */
+export function byNewestFirst<T extends { createdAt: number }>(a: T, b: T): number {
+  return b.createdAt - a.createdAt
 }

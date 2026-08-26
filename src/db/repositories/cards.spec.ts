@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { CardioDb } from '@/db'
-import { createCardRepo } from '@/db/cards'
+import { createCardRepo } from '@/db/repositories/cards'
 import { MASTERY_HISTORY_LIMIT, emptyStats, type CardStats } from '@/domain/models'
 import { ValidationError } from '@/domain/validation'
 
@@ -112,14 +112,14 @@ describe('card repository', () => {
   })
 
   describe('listByDeck', () => {
-    it('returns the deck’s cards oldest first', async () => {
-      await cards.create('deck-1', { front: 'second', back: 'b' }, 2000)
-      await cards.create('deck-1', { front: 'first', back: 'b' }, 1000)
+    it('returns the deck’s cards newest first', async () => {
+      await cards.create('deck-1', { front: 'older', back: 'b' }, 1000)
+      await cards.create('deck-1', { front: 'newer', back: 'b' }, 2000)
       await cards.create('deck-2', { front: 'elsewhere', back: 'b' }, 1500)
 
       expect((await cards.listByDeck('deck-1')).map((card) => card.front)).toEqual([
-        'first',
-        'second',
+        'newer',
+        'older',
       ])
     })
 
@@ -134,8 +134,8 @@ describe('card repository', () => {
       await cards.create('deck-2', { front: 'two', back: 'b' }, 2000)
 
       expect((await cards.listByDecks(['deck-1', 'deck-2'])).map((card) => card.front)).toEqual([
-        'one',
         'two',
+        'one',
       ])
     })
 
@@ -211,6 +211,73 @@ describe('card repository', () => {
 
     it('is a no-op for a card that is already gone', async () => {
       await expect(cards.remove('gone')).resolves.toBeUndefined()
+    })
+  })
+
+  describe('recordAttempt', () => {
+    it('counts a get, stamps the attempt and remembers when it was seen', async () => {
+      const card = await cards.create('deck-1', { front: 'hablar', back: 'b' }, 5000)
+
+      const answered = await cards.recordAttempt(card.id, true, 7000)
+
+      expect(answered.stats).toEqual({
+        gets: 1,
+        misses: 0,
+        history: [{ at: 7000, got: true }],
+        lastSeenAt: 7000,
+      })
+      expect((await db.cards.get(card.id))?.stats).toEqual(answered.stats)
+    })
+
+    it('counts a miss against the other counter', async () => {
+      const card = await cards.create('deck-1', { front: 'hablar', back: 'b' }, 5000)
+
+      const answered = await cards.recordAttempt(card.id, false, 7000)
+
+      expect(answered.stats.gets).toBe(0)
+      expect(answered.stats.misses).toBe(1)
+      expect(answered.stats.history).toEqual([{ at: 7000, got: false }])
+    })
+
+    it('appends to the history it already had, oldest first', async () => {
+      const card = await cards.create('deck-1', { front: 'hablar', back: 'b' }, 5000)
+
+      await cards.recordAttempt(card.id, true, 7000)
+      await cards.recordAttempt(card.id, false, 8000)
+      const answered = await cards.recordAttempt(card.id, true, 9000)
+
+      expect(answered.stats.history).toEqual([
+        { at: 7000, got: true },
+        { at: 8000, got: false },
+        { at: 9000, got: true },
+      ])
+      expect(answered.stats).toMatchObject({ gets: 2, misses: 1, lastSeenAt: 9000 })
+    })
+
+    it('drops the oldest attempt once the history is at the cap', async () => {
+      const card = await cards.create('deck-1', { front: 'hablar', back: 'b' }, 5000)
+
+      for (let attempt = 1; attempt <= MASTERY_HISTORY_LIMIT + 1; attempt++) {
+        await cards.recordAttempt(card.id, true, attempt)
+      }
+
+      const stats = (await db.cards.get(card.id))?.stats
+      expect(stats?.history).toHaveLength(MASTERY_HISTORY_LIMIT)
+      // The first attempt fell off the front; the lifetime counter kept all 21.
+      expect(stats?.history[0]).toEqual({ at: 2, got: true })
+      expect(stats?.gets).toBe(MASTERY_HISTORY_LIMIT + 1)
+    })
+
+    it('does not bump updatedAt, so answering a quiz never reorders a listing', async () => {
+      const card = await cards.create('deck-1', { front: 'hablar', back: 'b' }, 5000)
+
+      await cards.recordAttempt(card.id, true, 7000)
+
+      expect((await db.cards.get(card.id))?.updatedAt).toBe(5000)
+    })
+
+    it('reports a card that is no longer there', async () => {
+      await expect(cards.recordAttempt('gone', true, 7000)).rejects.toThrow(ValidationError)
     })
   })
 

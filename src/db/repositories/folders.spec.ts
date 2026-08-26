@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { CardioDb, seedDefaults, UNSORTED_FOLDER_ID } from '@/db'
-import { createFolderRepo } from '@/db/folders'
+import { createFolderRepo } from '@/db/repositories/folders'
 import { emptyStats } from '@/domain/models'
 import { ValidationError } from '@/domain/validation'
 
