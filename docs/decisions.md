@@ -169,3 +169,71 @@ tested exactly (spec §5.4).
   `vitest.config.ts` — all three must be updated together.
 - ESLint forbids `src/domain/**` from importing Vue, Pinia, Dexie, `@/db/*` or
   `@/stores/*`. That rule is the architecture, not a style preference.
+
+## ADR-017 — Repositories are factories over a database, with one validation error
+
+**Decision.** `src/db/repositories` holds one repository per entity —
+`createFolderRepo`, `createDeckRepo`, `createCardRepo`, plus `createLibraryRepo` for the
+whole-library replace of §10 — each a factory taking a `CardioDb` and defaulting to the
+shared instance, plus a bound singleton (`folderRepo`, `deckRepo`, `cardRepo`,
+`libraryRepo`) for stores to import. Write methods take `now` as a **required** trailing
+parameter. Everything that breaks a §4.2 invariant — an empty name, an over-long face, a
+`folderId` or `deckId` that does not resolve, a target row that has disappeared, an
+attempt to delete Unsorted — throws `ValidationError` carrying the `field` it belongs
+to.
+
+**Why.** The factory is what makes per-test isolation against `fake-indexeddb` possible
+without a module-level reset hook, so every spec really can have its own database name.
+`now` is required rather than defaulted because a default is a second, invisible clock:
+the store owns `Date.now()` and passing it explicitly is what keeps timestamps exactly
+assertable, mastery decay being measured in days. One error type with a
+`field` gives a form something to attach a message to; a second class would only have to
+be discriminated at every call site to say the same thing.
+
+**Consequence.** Stores import `@/db/repositories/folders` and friends directly rather
+than a barrel, because a barrel in `@/db` would import the modules that import it.
+Methods that mutate a named row (`rename`, `move`, `update`, `recordAttempt`,
+`saveStats`) reject when the row is gone, while `remove` is idempotent — a stale list
+offering delete twice should not throw. Both stats writers trim `history` to
+`MASTERY_HISTORY_LIMIT` on the way in, so the §4.2 cap holds at the storage boundary
+whatever the caller hands over: `recordAttempt(id, got, now)` is the quiz's one-answer
+write (§6.4), `saveStats(id, stats)` the wholesale one that undo restores through
+(§6.5). Neither touches `updatedAt`.
+
+The §4.2 rules themselves live in `src/domain/validation.ts` rather than `src/db`, which
+is a deliberate departure from the plan's file list: `src/domain/backup.ts` has to apply
+exactly the same rules to every imported row (§10) and ESLint forbids `src/domain/**`
+from importing `@/db/*`. Putting them in `src/db` would have forced item 10 to duplicate
+them.
+
+## ADR-018 — Listing order is fixed in JavaScript, not by index
+
+**Decision.** Folders and decks list alphabetically via
+`localeCompare(…, { sensitivity: 'base' })`; cards list newest first by `createdAt`. All
+three sorts happen after the query rather than through a Dexie index.
+
+**Why.** Spec §2 puts user-selectable sort orders out of scope, so the order only has to
+be the least surprising one. IndexedDB's index order is case-sensitive, which files
+`Zebra` before `apple` and reads as a bug. Cards go newest first because §7.4's "Save and
+add another" makes runs of new cards the common case, and a card just typed belongs at
+the top of its deck rather than buried under two hundred older ones. `createdAt` is
+deliberately not indexed — §4.3 fixes the version 1 indexes, and adding one to sort a few
+thousand rows would cost a migration.
+
+**Consequence.** The `name` indexes §4.3 declares are carried for future range queries
+rather than used for ordering.
+
+## ADR-019 — The durability request is scoped to the database instance
+
+**Decision.** Every repository write goes through `durableWrite(database, …)`, which runs
+the write and then, once per `CardioDb` instance, fires `navigator.storage.persist()`
+without awaiting it.
+
+**Why.** §4.5 asks for the request on the first _successful_ write, which rules out both
+asking on every write — Firefox prompts — and asking at boot, before the user has
+anything worth keeping. Keying "already asked" to the database instance rather than to
+the module means a test's throwaway database starts fresh without exporting a reset hook
+that exists only for tests.
+
+**Consequence.** A failed write never triggers the request, and a missing or rejecting
+Storage API resolves to `false` rather than failing the write that triggered it.
