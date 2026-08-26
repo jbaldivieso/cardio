@@ -81,3 +81,19 @@ export function band(stats: CardStats, now: number): MasteryBand {
   if (stats.gets + stats.misses === 0) return 'new'
   return mastery(stats, now) >= MASTERED_MIN ? 'mastered' : 'learning'
 }
+
+/**
+ * At or above `MASTERED_MIN`. Tier 7 of the quiz slider selects exactly these,
+ * and tiers 2–6 treat everything else as unmastered (spec §6.2).
+ */
+export function isMastered(stats: CardStats, now: number): boolean {
+  return mastery(stats, now) >= MASTERED_MIN
+}
+
+/**
+ * At or below `WEAK_MAX` — what tier 1 practises. An untried card scores 0, so
+ * it is weak and therefore eligible, which is the point (spec §5.2).
+ */
+export function isWeak(stats: CardStats, now: number): boolean {
+  return mastery(stats, now) <= WEAK_MAX
+}

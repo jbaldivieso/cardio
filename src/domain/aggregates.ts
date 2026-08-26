@@ -31,7 +31,7 @@ function summaryOf(total: number, counts: { new: number; learning: number; maste
 }
 
 /** Band every card in a deck and count the results. */
-export function summariseCards(cards: Card[], now: number): MasterySummary {
+export function summarise(cards: Card[], now: number): MasterySummary {
   const counts = { new: 0, learning: 0, mastered: 0 }
   for (const card of cards) {
     counts[band(card.stats, now)] += 1

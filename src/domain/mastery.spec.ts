@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { band, mastery, MASTERED_MIN, WEAK_MAX } from '@/domain/mastery'
+import { band, isMastered, isWeak, mastery, MASTERED_MIN, WEAK_MAX } from '@/domain/mastery'
+import { emptyStats } from '@/domain/models'
 import type { CardStats, MasteryBand } from '@/domain/models'
 
 const MINUTE = 60_000
@@ -48,6 +49,13 @@ function statsFor(vector: Vector): CardStats {
     got: mark === 'G',
   }))
   return { gets: vector.gets, misses: vector.misses, history: attempts, lastSeenAt }
+}
+
+/** The §5.4 row for a history pattern seen `daysAgo` ago; the vectors are the fixtures. */
+function vectorFor(history: string, daysAgo: number): Vector {
+  const vector = VECTORS.find((row) => row.history === history && row.daysAgo === daysAgo)
+  if (!vector) throw new Error(`No spec §5.4 vector for ${history} at ${daysAgo} days`)
+  return vector
 }
 
 const cases = VECTORS.map((vector) => ({
@@ -220,5 +228,46 @@ describe('band boundaries', () => {
   it('puts the mastered floor at 80 and the weak ceiling at 40', () => {
     expect(MASTERED_MIN).toBe(80)
     expect(WEAK_MAX).toBe(40)
+  })
+})
+
+/** The two hard filters of the quiz slider: tier 1 takes weak, tier 7 mastered (§6.2). */
+describe('isMastered', () => {
+  it('includes a card scoring exactly the mastered minimum', () => {
+    const stats = statsFor(vectorFor('GGGG', 0))
+
+    expect(mastery(stats, NOW)).toBe(MASTERED_MIN)
+    expect(isMastered(stats, NOW)).toBe(true)
+  })
+
+  it('excludes a card one fresh miss below it', () => {
+    const stats = statsFor(vectorFor('GGGGM', 0))
+
+    expect(mastery(stats, NOW)).toBeLessThan(MASTERED_MIN)
+    expect(isMastered(stats, NOW)).toBe(false)
+  })
+
+  it('excludes a card that has never been tried', () => {
+    expect(isMastered(emptyStats(), NOW)).toBe(false)
+  })
+})
+
+describe('isWeak', () => {
+  it('includes a card scoring exactly the weak ceiling', () => {
+    const stats = statsFor(vectorFor('GG', 1))
+
+    expect(mastery(stats, NOW)).toBe(WEAK_MAX)
+    expect(isWeak(stats, NOW)).toBe(true)
+  })
+
+  it('excludes a card one clean get above it', () => {
+    const stats = statsFor(vectorFor('GGG', 0))
+
+    expect(mastery(stats, NOW)).toBeGreaterThan(WEAK_MAX)
+    expect(isWeak(stats, NOW)).toBe(false)
+  })
+
+  it('includes a card that has never been tried, so a new card is eligible for practice', () => {
+    expect(isWeak(emptyStats(), NOW)).toBe(true)
   })
 })
