@@ -11,3 +11,12 @@ test-results/
 
 # Local only: the original brief
 docs/app-outline.md
+
+# Claude Code: the plan files are project docs — CLAUDE.md, README.md and
+# docs/spec.md all point at them, so they have to survive a clone (a web agent
+# working from one has no other way to read them). A global ignore of
+# `.claude/*` is common and silent; the negations below override it. Everything
+# else under .claude/ is per-developer.
+.claude/*
+!.claude/plans/
+!.claude/plans/**
