@@ -3,7 +3,16 @@ import { computed, onBeforeUnmount, onMounted, ref, useId } from 'vue'
 import type { Folder } from '@/domain/models'
 
 /** Moves one deck to another folder (§7.2). */
-const props = defineProps<{ deckName: string; folders: Folder[]; currentFolderId: string }>()
+const props = withDefaults(
+  defineProps<{
+    deckName: string
+    folders: Folder[]
+    currentFolderId: string
+    /** Why the last move was refused, if it was. */
+    error?: string | null
+  }>(),
+  { error: null },
+)
 
 const emit = defineEmits<{ submit: [folderId: string]; cancel: [] }>()
 
@@ -61,6 +70,10 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
               </select>
             </div>
           </div>
+        </div>
+
+        <div v-if="error" class="notification is-danger is-light" data-testid="move-error">
+          {{ error }}
         </div>
       </section>
       <footer class="modal-card-foot is-justify-content-flex-end is-gap-2">

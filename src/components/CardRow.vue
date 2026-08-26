@@ -10,6 +10,11 @@ const emit = defineEmits<{ open: []; delete: [] }>()
 /**
  * Tapping the row opens the editor, except on something that has its own job:
  * the row's own buttons, and any link the card's markdown put there.
+ *
+ * The row is deliberately not a `role="button"`: it contains real buttons and
+ * whatever links the front's markdown rendered, and nesting interactive
+ * elements inside one is worse for a screen reader than leaving the row as a
+ * pointer shortcut. Edit is the accessible, focusable way to the same screen.
  */
 function onRowClick(event: MouseEvent): void {
   if ((event.target as HTMLElement | null)?.closest('a, button')) return
@@ -19,7 +24,7 @@ function onRowClick(event: MouseEvent): void {
 
 <template>
   <div
-    class="box is-flex is-flex-wrap-wrap is-align-items-center is-justify-content-space-between is-gap-2"
+    class="box cardio-tappable is-flex is-flex-wrap-wrap is-align-items-center is-justify-content-space-between is-gap-2"
     data-testid="card-row"
     @click="onRowClick"
   >

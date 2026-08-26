@@ -20,6 +20,13 @@ const library = useLibraryStore()
 const cards = useCardsStore()
 const router = useRouter()
 const dialog = ref<Dialog | null>(null)
+/** Why the open dialog's last submit was refused. Cleared whenever one opens. */
+const dialogError = ref<string | null>(null)
+
+function openDialog(next: Dialog | null): void {
+  dialogError.value = null
+  dialog.value = next
+}
 
 // Both reads start together: the breadcrumb needs the library, the list needs
 // this deck, and neither waits on the other.
@@ -51,16 +58,20 @@ function openEditor(card: Card): void {
   void router.push({ name: 'card-edit', params: { cardId: card.id } })
 }
 
+// A refused import keeps the dialog and the paste, so a batch someone spent time
+// assembling is not lost to one bad line (ADR-025).
 async function importCards(parsed: ParsedCard[]): Promise<void> {
-  await cards.createMany(props.deckId, parsed)
-  dialog.value = null
+  const created = await cards.createMany(props.deckId, parsed)
+  if (created) openDialog(null)
+  else dialogError.value = cards.error
 }
 
 async function confirmDelete(): Promise<void> {
   const open = dialog.value
   if (open?.kind !== 'delete') return
   await cards.remove(open.card.id)
-  dialog.value = null
+  // A confirmation holds nothing the user typed, so it closes either way.
+  openDialog(null)
 }
 </script>
 
@@ -89,7 +100,7 @@ async function confirmDelete(): Promise<void> {
             type="button"
             class="button cardio-action"
             data-testid="bulk-add"
-            @click="dialog = { kind: 'bulk' }"
+            @click="openDialog({ kind: 'bulk' })"
           >
             Bulk add
           </button>
@@ -108,7 +119,7 @@ async function confirmDelete(): Promise<void> {
         :key="card.id"
         :card="card"
         @open="openEditor(card)"
-        @delete="dialog = { kind: 'delete', card }"
+        @delete="openDialog({ kind: 'delete', card })"
       />
 
       <div v-if="cards.cards.length === 0" class="notification" data-testid="cards-empty">
@@ -117,13 +128,18 @@ async function confirmDelete(): Promise<void> {
       </div>
     </template>
 
-    <BulkAddDialog v-if="dialog?.kind === 'bulk'" @submit="importCards" @cancel="dialog = null" />
+    <BulkAddDialog
+      v-if="dialog?.kind === 'bulk'"
+      :error="dialogError"
+      @submit="importCards"
+      @cancel="openDialog(null)"
+    />
     <ConfirmDialog
       v-else-if="dialog?.kind === 'delete'"
       title="Delete card"
       :message="deleteCardPrompt()"
       @confirm="confirmDelete"
-      @cancel="dialog = null"
+      @cancel="openDialog(null)"
     />
   </section>
 </template>

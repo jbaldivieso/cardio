@@ -52,6 +52,12 @@ describe('CardRow', () => {
     expect(wrapper.emitted('open')).toBeUndefined()
   })
 
+  it('advertises the row as tappable', () => {
+    const wrapper = mountRow()
+
+    expect(wrapper.get('[data-testid="card-row"]').classes()).toContain('cardio-tappable')
+  })
+
   it('leaves a link inside the front to do its own job', async () => {
     const wrapper = mountRow('[docs](http://example.com)')
 

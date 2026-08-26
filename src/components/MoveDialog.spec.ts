@@ -47,6 +47,26 @@ describe('MoveDialog', () => {
     expect(wrapper.get('[data-testid="move-save"]').attributes('disabled')).toBeDefined()
   })
 
+  it('shows why a move was refused', () => {
+    const wrapper = mount(MoveDialog, {
+      props: {
+        deckName: 'Verbs',
+        folders,
+        currentFolderId: 'f1',
+        error: 'That folder no longer exists.',
+      },
+      attachTo: document.body,
+    })
+
+    expect(wrapper.get('[data-testid="move-error"]').text()).toBe('That folder no longer exists.')
+  })
+
+  it('shows nothing where the failure would be when there is none', () => {
+    const wrapper = mountDialog()
+
+    expect(wrapper.find('[data-testid="move-error"]').exists()).toBe(false)
+  })
+
   it('emits cancel on Escape', async () => {
     const wrapper = mountDialog()
 

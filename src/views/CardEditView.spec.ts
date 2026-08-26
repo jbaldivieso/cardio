@@ -100,6 +100,27 @@ describe('CardEditView', () => {
       )
     })
 
+    it('counts what will be stored, ignoring surrounding whitespace', async () => {
+      const wrapper = await mountEditor({ deckId })
+
+      await type(wrapper, '  ser  ', 'to be')
+
+      expect(wrapper.get('[data-testid="card-front-count"]').text()).toContain(
+        `3 / ${FACE_MAX_LENGTH}`,
+      )
+    })
+
+    it('keeps Save enabled and the counter within the limit for a padded face', async () => {
+      const wrapper = await mountEditor({ deckId })
+
+      await type(wrapper, `${'x'.repeat(FACE_MAX_LENGTH)}   `, 'to be')
+
+      expect(wrapper.get('[data-testid="card-front-count"]').text()).toContain(
+        `${FACE_MAX_LENGTH} / ${FACE_MAX_LENGTH}`,
+      )
+      expect(saveButton(wrapper).attributes('disabled')).toBeUndefined()
+    })
+
     it('saves the card and goes back to the deck', async () => {
       const wrapper = await mountEditor({ deckId })
 
@@ -160,6 +181,16 @@ describe('CardEditView', () => {
       const wrapper = await mountEditor({ cardId: 'missing' })
 
       expect(wrapper.get('[data-testid="card-missing"]').text()).toContain('card')
+    })
+
+    it('reports a failed read as an error, not as a missing card', async () => {
+      const card = await repositories.cards.create(deckId, { front: 'ser', back: 'to be' }, 1000)
+      vi.spyOn(repositories.cards, 'get').mockRejectedValueOnce(new Error('The database is gone.'))
+
+      const wrapper = await mountEditor({ cardId: card.id })
+
+      expect(wrapper.get('[data-testid="card-error"]').text()).toBe('The database is gone.')
+      expect(wrapper.find('[data-testid="card-missing"]').exists()).toBe(false)
     })
   })
 

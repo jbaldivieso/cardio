@@ -5,6 +5,8 @@ import type { ParsedCard } from '@/domain/bulkParse'
 import { countLabel } from '@/domain/prompts'
 
 /** Paste a batch of cards into one deck (§9). */
+withDefaults(defineProps<{ error?: string | null }>(), { error: null })
+
 const emit = defineEmits<{ submit: [cards: ParsedCard[]]; cancel: [] }>()
 
 const separators = [
@@ -87,6 +89,10 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
             One card per line, front then back. A card face cannot span lines — add those
             individually.
           </p>
+        </div>
+
+        <div v-if="error" class="notification is-danger is-light" data-testid="bulk-error">
+          {{ error }}
         </div>
 
         <p class="has-text-weight-semibold" data-testid="bulk-summary">{{ summary }}</p>

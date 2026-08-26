@@ -117,6 +117,22 @@ describe('FolderView', () => {
     await vi.waitFor(() => expect(rows(wrapper)).toHaveLength(0))
   })
 
+  it('keeps the move dialog open, with the reason, when the move fails', async () => {
+    await repositories.folders.create('Spanish', 1000)
+    await repositories.decks.create(UNSORTED_FOLDER_ID, 'Verbs', 1000)
+    const wrapper = await mountView(UNSORTED_FOLDER_ID)
+    vi.spyOn(repositories.decks, 'move').mockRejectedValueOnce(
+      new Error('That folder no longer exists.'),
+    )
+
+    await rows(wrapper)[0].get('[data-testid="deck-move"]').trigger('click')
+    await wrapper.get('[data-testid="move-save"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="move-dialog"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="move-error"]').text()).toBe('That folder no longer exists.')
+  })
+
   it('names the card count before deleting a deck', async () => {
     const deck = await repositories.decks.create(UNSORTED_FOLDER_ID, 'Verbs', 1000)
     await repositories.cards.create(deck.id, { front: 'ser', back: 'to be' }, 1000)

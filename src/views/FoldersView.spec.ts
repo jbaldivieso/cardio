@@ -92,6 +92,21 @@ describe('FoldersView', () => {
     expect(wrapper.find('[data-testid="name-dialog"]').exists()).toBe(false)
   })
 
+  it('keeps the name dialog open, with the reason, when the write fails', async () => {
+    const wrapper = await mountView()
+    vi.spyOn(repositories.folders, 'create').mockRejectedValueOnce(
+      new Error('Name cannot be empty.'),
+    )
+
+    await wrapper.get('[data-testid="new-folder"]').trigger('click')
+    await wrapper.get('[data-testid="name-input"]').setValue('Spanish')
+    await wrapper.get('[data-testid="name-save"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="name-dialog"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="name-error"]').text()).toBe('Name cannot be empty.')
+  })
+
   it('renames a folder through the rename dialog', async () => {
     await repositories.folders.create('Spanihs', 1000)
     const wrapper = await mountView()

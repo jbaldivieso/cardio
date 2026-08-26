@@ -55,6 +55,18 @@ describe('NameDialog', () => {
     expect(wrapper.emitted('submit')).toEqual([['Spanish']])
   })
 
+  it('shows why a name was refused', () => {
+    const wrapper = mountDialog({ error: 'Name cannot be empty.' })
+
+    expect(wrapper.get('[data-testid="name-error"]').text()).toBe('Name cannot be empty.')
+  })
+
+  it('shows nothing where the failure would be when there is none', () => {
+    const wrapper = mountDialog()
+
+    expect(wrapper.find('[data-testid="name-error"]').exists()).toBe(false)
+  })
+
   it('emits cancel on Escape', async () => {
     const wrapper = mountDialog()
 

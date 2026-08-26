@@ -13,6 +13,13 @@ type Dialog =
 
 const library = useLibraryStore()
 const dialog = ref<Dialog | null>(null)
+/** Why the open dialog's last submit was refused. Cleared whenever one opens. */
+const dialogError = ref<string | null>(null)
+
+function openDialog(next: Dialog | null): void {
+  dialogError.value = null
+  dialog.value = next
+}
 
 onMounted(() => library.load())
 
@@ -22,18 +29,26 @@ const deletePrompt = computed(() =>
     : '',
 )
 
+// A refused write leaves the dialog up with the name still in it, so the typing
+// is not thrown away along with the attempt (ADR-025).
 async function submitName(name: string): Promise<void> {
   const open = dialog.value
-  if (open?.kind === 'create') await library.createFolder(name)
-  else if (open?.kind === 'rename') await library.renameFolder(open.folder.id, name)
-  dialog.value = null
+  if (open?.kind !== 'create' && open?.kind !== 'rename') return
+  const saved =
+    open.kind === 'create'
+      ? await library.createFolder(name)
+      : await library.renameFolder(open.folder.id, name)
+  if (saved) openDialog(null)
+  else dialogError.value = library.error
 }
 
 async function confirmDelete(): Promise<void> {
   const open = dialog.value
   if (open?.kind !== 'delete') return
   await library.removeFolder(open.folder.id)
-  dialog.value = null
+  // A confirmation holds nothing the user typed, so it closes either way and
+  // lets the screen's error banner explain a failure.
+  openDialog(null)
 }
 </script>
 
@@ -47,7 +62,7 @@ async function confirmDelete(): Promise<void> {
         type="button"
         class="button is-primary cardio-action"
         data-testid="new-folder"
-        @click="dialog = { kind: 'create' }"
+        @click="openDialog({ kind: 'create' })"
       >
         New folder
       </button>
@@ -67,8 +82,8 @@ async function confirmDelete(): Promise<void> {
         :deck-count="library.countsFor(folder.id).decks"
         :card-count="library.countsFor(folder.id).cards"
         :deletable="library.canDeleteFolder(folder.id)"
-        @rename="dialog = { kind: 'rename', folder }"
-        @delete="dialog = { kind: 'delete', folder }"
+        @rename="openDialog({ kind: 'rename', folder })"
+        @delete="openDialog({ kind: 'delete', folder })"
       />
 
       <div v-if="library.folders.length === 0" class="notification" data-testid="folders-empty">
@@ -85,23 +100,25 @@ async function confirmDelete(): Promise<void> {
       title="New folder"
       label="Folder name"
       confirm-label="Create"
+      :error="dialogError"
       @submit="submitName"
-      @cancel="dialog = null"
+      @cancel="openDialog(null)"
     />
     <NameDialog
       v-else-if="dialog?.kind === 'rename'"
       title="Rename folder"
       label="Folder name"
       :initial-name="dialog.folder.name"
+      :error="dialogError"
       @submit="submitName"
-      @cancel="dialog = null"
+      @cancel="openDialog(null)"
     />
     <ConfirmDialog
       v-else-if="dialog?.kind === 'delete'"
       title="Delete folder"
       :message="deletePrompt"
       @confirm="confirmDelete"
-      @cancel="dialog = null"
+      @cancel="openDialog(null)"
     />
   </section>
 </template>

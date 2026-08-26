@@ -53,3 +53,9 @@ button (item 08).
   so the exact sentence is assertable without mounting a dialog (ADR-021). Item 04 adds
   the deck prompt beside it.
 - Counts come from the loaded state rather than `folderRepo.contents()`; see ADR-021.
+
+## Review follow-ups
+
+- `NameDialog` now takes an `error` and stays open when a create or rename is refused, so
+  the typed name is not lost with the attempt (ADR-025). `ConfirmDialog` still closes
+  either way — it holds nothing to lose, and staying open would cover the error banner.

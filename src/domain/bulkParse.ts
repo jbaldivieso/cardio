@@ -5,6 +5,9 @@
  * reported by number and contributes no card, but blank lines are just blank.
  */
 
+import { FACE_MAX_LENGTH } from '@/domain/validation'
+import type { FaceField } from '@/domain/validation'
+
 export interface ParsedCard {
   front: string
   back: string
@@ -19,6 +22,19 @@ export interface BulkError {
 export interface BulkResult {
   cards: ParsedCard[]
   errors: BulkError[]
+}
+
+/**
+ * Why this face cannot be used, or `null` if it can. Length is checked here so a
+ * face that is too long is reported against its line number, rather than
+ * rejecting the whole batch at the write (§4.2).
+ */
+function faceProblem(face: string, label: FaceField): string | null {
+  if (face.length === 0) return `The ${label} is empty.`
+  if (face.length > FACE_MAX_LENGTH) {
+    return `The ${label} is longer than ${FACE_MAX_LENGTH} characters.`
+  }
+  return null
 }
 
 /** A tab is invisible in a message, so it gets a name instead. */
@@ -45,12 +61,9 @@ export function parseBulk(text: string, separator: string): BulkResult {
     // Only the first separator splits, so the back may contain more of them.
     const front = content.slice(0, at).trim()
     const back = content.slice(at + separator.length).trim()
-    if (front.length === 0) {
-      errors.push({ line, reason: 'The front is empty.' })
-      return
-    }
-    if (back.length === 0) {
-      errors.push({ line, reason: 'The back is empty.' })
+    const problem = faceProblem(front, 'front') ?? faceProblem(back, 'back')
+    if (problem) {
+      errors.push({ line, reason: problem })
       return
     }
 

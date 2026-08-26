@@ -80,3 +80,21 @@ entirely (§2).
   mounts through a `RouterView` at the real route instead of mounting the view with props.
 - `deck`, `card-new` and `card-edit` now take their route parameters as props, as item 04
   did for `folder` (ADR-022).
+
+## Review follow-ups
+
+Found in review of the item's PR and fixed on the same branch:
+
+- A refused bulk import used to close the dialog and discard the paste. It now stays open
+  with the reason and the text intact (ADR-025), and `parseBulk` reports an over-long face
+  against its line number rather than letting the whole batch fail at the write (ADR-026).
+- The editor's character counter measured the raw face while the limit applied to the
+  trimmed one, so a padded face could read `4010 / 4000` with Save still enabled. Both
+  count the trimmed face now.
+- A rejected read of a card reported "that card is not here" as well as the error. Only
+  the absence of both a card and an error means missing.
+- Spec §8 claimed a disabled `image` rule renders `![alt](url)` as its literal source
+  text. It does not — the `!` is left as text and the rest is still a link. §8 now
+  describes what actually happens; §13 was never at risk, since nothing is fetched.
+- `CardRow`'s row-level tap is documented as a pointer shortcut, with Edit as the
+  keyboard path (ADR-027).

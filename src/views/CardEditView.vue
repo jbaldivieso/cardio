@@ -34,15 +34,26 @@ onMounted(async () => {
       back.value = card.back
       stored.value = { front: card.front, back: card.back }
       deckId.value = card.deckId
-    } else {
+    } else if (!cards.error) {
+      // No card and no error is the only combination that means "not there";
+      // a rejected read has its own message to show.
       missing.value = true
     }
   }
   loading.value = false
 })
 
+/**
+ * Faces are stored trimmed (§4.2), so that is what the counter counts and what
+ * the limit applies to — otherwise trailing whitespace reads as over the limit
+ * while Save stays enabled.
+ */
+function faceLength(face: string): number {
+  return face.trim().length
+}
+
 function overLength(face: string): boolean {
-  return face.trim().length > FACE_MAX_LENGTH
+  return faceLength(face) > FACE_MAX_LENGTH
 }
 
 function faceValid(face: string): boolean {
@@ -128,7 +139,7 @@ function answerLeave(leave: boolean): void {
               :class="{ 'has-text-danger': overLength(front) }"
               data-testid="card-front-count"
             >
-              {{ front.length }} / {{ FACE_MAX_LENGTH }}
+              {{ faceLength(front) }} / {{ FACE_MAX_LENGTH }}
             </p>
           </div>
           <p class="label is-size-7">Preview</p>
@@ -152,7 +163,7 @@ function answerLeave(leave: boolean): void {
               :class="{ 'has-text-danger': overLength(back) }"
               data-testid="card-back-count"
             >
-              {{ back.length }} / {{ FACE_MAX_LENGTH }}
+              {{ faceLength(back) }} / {{ FACE_MAX_LENGTH }}
             </p>
           </div>
           <p class="label is-size-7">Preview</p>

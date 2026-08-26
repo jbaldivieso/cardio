@@ -52,3 +52,9 @@
   -webkit-line-clamp: 2;
   line-clamp: 2;
 }
+
+// A row that opens something on tap says so under the pointer. Keyboard users
+// reach the same screen through the row's own Edit button; see CardRow.vue.
+.cardio-tappable {
+  cursor: pointer;
+}

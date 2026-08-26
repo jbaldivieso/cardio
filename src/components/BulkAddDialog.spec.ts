@@ -77,6 +77,34 @@ describe('BulkAddDialog', () => {
     expect(wrapper.text()).toContain('One card per line')
   })
 
+  it('shows why an import was refused', async () => {
+    const wrapper = mount(BulkAddDialog, {
+      props: { error: 'That deck no longer exists.' },
+      attachTo: document.body,
+    })
+
+    expect(wrapper.get('[data-testid="bulk-error"]').text()).toBe('That deck no longer exists.')
+  })
+
+  it('keeps the pasted text when an import was refused', async () => {
+    const wrapper = mount(BulkAddDialog, {
+      props: { error: 'That deck no longer exists.' },
+      attachTo: document.body,
+    })
+
+    await paste(wrapper, 'ser|to be')
+
+    expect(wrapper.get<HTMLTextAreaElement>('[data-testid="bulk-text"]').element.value).toBe(
+      'ser|to be',
+    )
+  })
+
+  it('shows nothing where the failure would be when there is none', () => {
+    const wrapper = mountDialog()
+
+    expect(wrapper.find('[data-testid="bulk-error"]').exists()).toBe(false)
+  })
+
   it('emits cancel on Escape', async () => {
     const wrapper = mountDialog()
 

@@ -48,3 +48,8 @@ room for both in `DeckRow` but adds neither.
   is what lets item 05 pass `[folder, deck]`.
 - `MoveDialog` offers nothing and says why when the deck's folder is the only one, rather
   than opening an empty select.
+
+## Review follow-ups
+
+- `MoveDialog` takes an `error` and stays open when a move is refused, like the other
+  dialogs that hold a choice or some typing (ADR-025).

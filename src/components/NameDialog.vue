@@ -12,8 +12,10 @@ const props = withDefaults(
     label?: string
     initialName?: string
     confirmLabel?: string
+    /** Why the last submit was refused, if it was. */
+    error?: string | null
   }>(),
-  { label: 'Name', initialName: '', confirmLabel: 'Save' },
+  { label: 'Name', initialName: '', confirmLabel: 'Save', error: null },
 )
 
 const emit = defineEmits<{ submit: [name: string]; cancel: [] }>()
@@ -75,6 +77,10 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
               data-testid="name-input"
             />
           </div>
+        </div>
+
+        <div v-if="error" class="notification is-danger is-light" data-testid="name-error">
+          {{ error }}
         </div>
       </section>
       <footer class="modal-card-foot is-justify-content-flex-end is-gap-2">

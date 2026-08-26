@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseBulk } from '@/domain/bulkParse'
+import { FACE_MAX_LENGTH } from '@/domain/validation'
 
 describe('parseBulk', () => {
   it('turns one delimited line into one card', () => {
@@ -85,6 +86,31 @@ describe('parseBulk', () => {
       { front: 'ser', back: 'to be' },
       { front: 'ir', back: 'to go' },
     ])
+  })
+
+  it('reports a front longer than the limit, by its line number', () => {
+    const result = parseBulk(`ser|to be\n${'x'.repeat(FACE_MAX_LENGTH + 1)}|too long`, '|')
+
+    expect(result.cards).toEqual([{ front: 'ser', back: 'to be' }])
+    expect(result.errors).toEqual([
+      { line: 2, reason: `The front is longer than ${FACE_MAX_LENGTH} characters.` },
+    ])
+  })
+
+  it('reports a back longer than the limit', () => {
+    const result = parseBulk(`ser|${'x'.repeat(FACE_MAX_LENGTH + 1)}`, '|')
+
+    expect(result.cards).toEqual([])
+    expect(result.errors).toEqual([
+      { line: 1, reason: `The back is longer than ${FACE_MAX_LENGTH} characters.` },
+    ])
+  })
+
+  it('accepts a face of exactly the limit', () => {
+    const result = parseBulk(`${'x'.repeat(FACE_MAX_LENGTH)}|to be`, '|')
+
+    expect(result.errors).toEqual([])
+    expect(result.cards).toHaveLength(1)
   })
 
   it('parses 500 lines in one pass', () => {

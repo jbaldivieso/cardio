@@ -48,6 +48,14 @@ describe('renderMarkdown', () => {
     expect(html).not.toContain('<img')
   })
 
+  it('leaves image syntax as a bang and an ordinary link, fetching nothing', () => {
+    const html = renderMarkdown('![x](http://example.com/x.png)')
+
+    expect(html).toBe(
+      '<p>!<a href="http://example.com/x.png" target="_blank" rel="noopener noreferrer">x</a></p>\n',
+    )
+  })
+
   it('opens links in a new tab, severed from this page', () => {
     const html = renderMarkdown('[docs](http://example.com)')
 

@@ -325,3 +325,56 @@ are as fresh as the last mount, which for a single-user offline app with no back
 writer is always. If a future screen ever shows a live count beside a card list without
 remounting, it should read `cards.cards.length` rather than have the cards store push a
 number sideways.
+
+## ADR-025 — A dialog holding typed input survives a refused write
+
+**Decision.** `NameDialog`, `MoveDialog` and `BulkAddDialog` take an `error` prop and stay
+open when the write behind them is rejected, showing the reason inside the dialog with the
+input still in it. `ConfirmDialog` closes either way and lets the screen's error banner
+explain.
+
+**Why.** Every dialog used to close unconditionally, so a rejected write threw away what
+the user had typed along with the attempt. That is cheap for a folder name and expensive
+for a bulk paste — a batch assembled over several minutes could vanish because of one bad
+line, with a message that named no line. The split is about what there is to lose: a
+confirmation holds nothing, so keeping it open would only hide the banner that explains
+the failure, since a modal covers the screen the banner is on. That covering is also why
+a dialog that stays open must carry the message itself: staying open without one is worse
+than closing, because the reason ends up behind the modal.
+
+**Consequence.** Each view owns a `dialogError` alongside `dialog`, and `openDialog()` is
+the one way to change either, so the error cannot outlive the dialog that caused it. The
+store's own `error` still drives the screen-level banner; the dialog copy is a snapshot
+taken at the moment a submit failed.
+
+## ADR-026 — Bulk add checks face length, which §9 does not list
+
+**Decision.** `parseBulk` reports a face longer than `FACE_MAX_LENGTH` as a numbered
+error, alongside the missing-separator and empty-face cases §9 does enumerate.
+
+**Why.** §9's list is about lines the parser cannot read, and §4.2's length limit is
+enforced at the repository. Between the two sat a gap: an over-long line parsed clean,
+then `createMany` rejected the entire batch with a message that named no line number,
+because validation there is per-face and not per-line. Checking it during the parse puts
+the complaint where every other complaint about a line already goes.
+
+**Consequence.** `src/domain/bulkParse.ts` imports `FACE_MAX_LENGTH` from
+`src/domain/validation.ts` — domain to domain, so the layer stays pure. The repository
+still validates, since it is the boundary that has to; the parser now just makes sure the
+batch it hands over will pass.
+
+## ADR-027 — The card row is a pointer shortcut, not a button
+
+**Decision.** `CardRow`'s whole-row click has no `role="button"` and no `tabindex`. The
+row's own **Edit** button is the focusable control that reaches the editor.
+
+**Why.** §7.3 asks that tapping a row open the editor. Making the row itself a button
+would nest interactive elements inside it — the row's Edit and Delete buttons, plus any
+link the front's markdown rendered — which assistive technology handles worse than a
+plain container, and the front cannot be wrapped in a `<button>` for the same reason. A
+duplicate control that is already reachable is the better answer than a role that lies
+about the element's contents.
+
+**Consequence.** `cursor: pointer` (`.cardio-tappable`) carries the affordance for
+pointer users. Anyone tempted to "fix" the missing role should read this first: the
+keyboard path is Edit, and it is tested.

@@ -126,4 +126,22 @@ describe('DeckView', () => {
     await vi.waitFor(() => expect(rows(wrapper)).toHaveLength(2))
     expect(wrapper.find('[data-testid="bulk-dialog"]').exists()).toBe(false)
   })
+
+  it('keeps the bulk dialog open, with the paste and the reason, when the write fails', async () => {
+    const wrapper = await mountView()
+    vi.spyOn(repositories.cards, 'createMany').mockRejectedValueOnce(
+      new Error('That deck no longer exists.'),
+    )
+
+    await wrapper.get('[data-testid="bulk-add"]').trigger('click')
+    await wrapper.get('[data-testid="bulk-text"]').setValue('ser|to be')
+    await wrapper.get('[data-testid="bulk-import"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="bulk-dialog"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="bulk-error"]').text()).toBe('That deck no longer exists.')
+    expect(wrapper.get<HTMLTextAreaElement>('[data-testid="bulk-text"]').element.value).toBe(
+      'ser|to be',
+    )
+  })
 })
