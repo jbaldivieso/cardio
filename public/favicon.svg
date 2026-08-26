@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Cardio">
+  <rect width="512" height="512" rx="96" fill="#00d1b2" />
+  <rect
+    x="120"
+    y="128"
+    width="272"
+    height="192"
+    rx="24"
+    fill="#ffffff"
+    opacity="0.5"
+    transform="rotate(-9 256 256)"
+  />
+  <rect x="112" y="184" width="288" height="200" rx="28" fill="#ffffff" />
+  <path
+    d="M 295.6 246.4 A 62 62 0 1 0 295.6 321.6"
+    fill="none"
+    stroke="#00806e"
+    stroke-width="30"
+    stroke-linecap="round"
+  />
+</svg>

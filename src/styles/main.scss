@@ -1,0 +1,25 @@
+// Bulma 1.x, imported as Sass so theme variables can be overridden here rather
+// than fought with in component styles.
+@use 'bulma/sass';
+
+:root {
+  --cardio-flip-duration: 220ms;
+}
+
+// The quiz screen is the only place with hand-written layout; everything else
+// should be plain Bulma classes.
+.cardio-app {
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+}
+
+.cardio-main {
+  flex: 1 1 auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --cardio-flip-duration: 0ms;
+  }
+}

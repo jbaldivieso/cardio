@@ -1,0 +1,13 @@
+node_modules/
+dist/
+dev-dist/
+coverage/
+playwright-report/
+test-results/
+.vite/
+*.local
+.DS_Store
+*.tsbuildinfo
+
+# Local only: the original brief
+docs/app-outline.md
