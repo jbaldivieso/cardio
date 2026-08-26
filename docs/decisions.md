@@ -458,13 +458,14 @@ guess what is wrong with the deck.
 **Consequence.** Every gated action needs its own guard in the handler, because the
 browser no longer enforces one for us. The `is-sr-only` sentence carries the reason in
 both states, so the description is useful once the deck has cards too.
+
 ## ADR-032 — Mastery summaries live in their own store, invalidated by the writer
 
 **Decision.** `src/stores/mastery.ts` holds one `MasterySummary` per deck id, reads a deck
 once, and keeps that summary until someone calls `invalidate(deckId)`. The store that
 performs a write makes that call: `src/stores/cards.ts` after every card write, and
-`src/stores/quiz.ts` after recording an answer (item 07). Folder roll-ups are a computed
-over the library store's decks, so `mastery` imports `library`.
+`src/stores/quiz.ts` after each answer it records and each one an undo takes back. Folder
+roll-ups are a computed over the library store's decks, so `mastery` imports `library`.
 
 **Why.** Banding a deck means reading all of its cards, which is far too much to do while
 a row renders (§13), so §5.5 asks for a memo per deck. A memo that outlives a mount cannot

@@ -44,11 +44,11 @@ Charts, history graphs, per-direction breakdowns.
 - The memo lives in a store of its own, `src/stores/mastery.ts`, which the writer
   invalidates: see docs/decisions.md > ADR-032 for why that is not the sideways write
   ADR-024 rules out.
-- Item 07's quiz store closes the second acceptance box: it records each answer, then
-  calls `mastery.invalidate(deckId)`, which is what the cards store already does after a
-  card write. Both are covered by store specs; nothing else is needed for the summary to
-  be right the moment a quiz ends.
+- The quiz store closes the second acceptance box: after each answer it records — and
+  each one an undo takes back — it calls `mastery.invalidate(deckId)`, which is what the
+  cards store already does after a card write. Both paths are covered by store specs, and
+  the screens re-read what a write dropped without being remounted.
 - `segmentWidths` (domain) hands the bar whole percentages that add up to 100 —
   ADR-033.
-- Out of scope but noticed: the quickstart **Quiz** buttons of §7.1 and §7.2 are still
-  missing from the folder and deck rows. They belong to item 08.
+- Rebased onto items 06–08 after they landed. The quiz rows and the bars share those
+  rows; the bar takes a line of its own beneath the name and the actions.

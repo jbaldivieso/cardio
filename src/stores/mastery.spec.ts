@@ -4,6 +4,7 @@ import { seedDefaults, UNSORTED_FOLDER_ID } from '@/db'
 import { useCardsStore } from '@/stores/cards'
 import { useLibraryStore } from '@/stores/library'
 import { useMasteryStore } from '@/stores/mastery'
+import { useQuizStore } from '@/stores/quiz'
 import { repositories } from '@/stores/repositories'
 import { useTestDatabase } from '@/test/repositories'
 
@@ -203,6 +204,38 @@ describe('mastery store', () => {
     await mastery.ensure([deckId])
 
     expect(mastery.deckSummary(deckId)?.total).toBe(1)
+  })
+
+  it('recomputes a deck after a quiz answer against one of its cards', async () => {
+    const deckId = await seedDeck('Verbs', 1)
+    const mastery = useMasteryStore()
+    const quiz = useQuizStore()
+    await mastery.ensure([deckId])
+    expect(mastery.deckSummary(deckId)?.new).toBe(1)
+
+    await quiz.quickstart([deckId], { name: 'home' })
+    quiz.flip()
+    await quiz.answer(true)
+    await mastery.ensure([deckId])
+
+    // Spec §5.4: one get today scores 20, which is learning rather than new.
+    expect(mastery.deckSummary(deckId)).toMatchObject({ new: 0, learning: 1 })
+  })
+
+  it('recomputes a deck after an undo takes a quiz answer back', async () => {
+    const deckId = await seedDeck('Verbs', 2)
+    const mastery = useMasteryStore()
+    const quiz = useQuizStore()
+    await quiz.quickstart([deckId], { name: 'home' })
+    quiz.flip()
+    await quiz.answer(true)
+    await mastery.ensure([deckId])
+    expect(mastery.deckSummary(deckId)?.learning).toBe(1)
+
+    await quiz.undo()
+    await mastery.ensure([deckId])
+
+    expect(mastery.deckSummary(deckId)?.new).toBe(2)
   })
 
   it('leaves the other decks cached when one of them is written to', async () => {
