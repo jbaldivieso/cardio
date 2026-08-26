@@ -169,3 +169,58 @@ tested exactly (spec §5.4).
   `vitest.config.ts` — all three must be updated together.
 - ESLint forbids `src/domain/**` from importing Vue, Pinia, Dexie, `@/db/*` or
   `@/stores/*`. That rule is the architecture, not a style preference.
+
+## ADR-017 — Repositories are factories over a database, with one validation error
+
+**Decision.** `src/db` exposes one repository per entity — `createFolderRepo`,
+`createDeckRepo`, `createCardRepo` — each a factory taking a `CardioDb` and defaulting to
+the shared instance, plus a bound singleton (`folderRepo`, `deckRepo`, `cardRepo`) for
+stores to import. Write methods take `now` as an optional trailing parameter defaulting
+to `Date.now()`. Everything that breaks a §4.2 invariant — an empty name, an over-long
+face, a `folderId` or `deckId` that does not resolve, a target row that has disappeared,
+an attempt to delete Unsorted — throws `ValidationError` carrying the `field` it belongs
+to.
+
+**Why.** The factory is what makes per-test isolation against `fake-indexeddb` possible
+without a module-level reset hook, so every spec really can have its own database name.
+Injecting `now` with a real default keeps timestamps exactly assertable — mastery decay
+is measured in days — while leaving app callers uncluttered. One error type with a
+`field` gives a form something to attach a message to; a second class would only have to
+be discriminated at every call site to say the same thing.
+
+**Consequence.** Stores import `@/db/folders` and friends directly rather than a barrel,
+because a barrel in `@/db` would import the modules that import it. Methods that mutate a
+named row (`rename`, `move`, `update`, `saveStats`) reject when the row is gone, while
+`remove` is idempotent — a stale list offering delete twice should not throw. `saveStats`
+trims `history` to `MASTERY_HISTORY_LIMIT` on the way in, so the §4.2 cap holds at the
+storage boundary whatever the caller hands it.
+
+## ADR-018 — Listing order is fixed in JavaScript, not by index
+
+**Decision.** Folders and decks list alphabetically via
+`localeCompare(…, { sensitivity: 'base' })`; cards list oldest first by `createdAt`. All
+three sorts happen after the query rather than through a Dexie index.
+
+**Why.** Spec §2 puts user-selectable sort orders out of scope, so the order only has to
+be the least surprising one. IndexedDB's index order is case-sensitive, which files
+`Zebra` before `apple` and reads as a bug. Cards want insertion order while a run of them
+is being entered, and `createdAt` is deliberately not indexed — §4.3 fixes the version 1
+indexes, and adding one to sort a few thousand rows would cost a migration.
+
+**Consequence.** The `name` indexes §4.3 declares are carried for future range queries
+rather than used for ordering.
+
+## ADR-019 — The durability request is scoped to the database instance
+
+**Decision.** Every repository write goes through `durableWrite(database, …)`, which runs
+the write and then, once per `CardioDb` instance, fires `navigator.storage.persist()`
+without awaiting it.
+
+**Why.** §4.5 asks for the request on the first _successful_ write, which rules out both
+asking on every write — Firefox prompts — and asking at boot, before the user has
+anything worth keeping. Keying "already asked" to the database instance rather than to
+the module means a test's throwaway database starts fresh without exporting a reset hook
+that exists only for tests.
+
+**Consequence.** A failed write never triggers the request, and a missing or rejecting
+Storage API resolves to `false` rather than failing the write that triggered it.
