@@ -75,7 +75,9 @@ async function startQuiz(): Promise<void> {
   emptyPool.value = false
   quiz.saveConfig(config.value)
   if (await quiz.launch(config.value, origin.value)) await router.push({ name: 'quiz-run' })
-  else emptyPool.value = true
+  // A launch also declines when the pool could not be read at all, and that is
+  // a failure to report rather than an empty deck to explain (§7.5).
+  else emptyPool.value = quiz.error === null
 }
 </script>
 
@@ -140,8 +142,12 @@ async function startQuiz(): Promise<void> {
       Those decks have no cards to quiz. Add some cards, or choose another deck.
     </p>
 
-    <p v-if="library.error" class="notification is-danger is-light" data-testid="quiz-error">
-      {{ library.error }}
+    <p
+      v-if="library.error ?? quiz.error"
+      class="notification is-danger is-light"
+      data-testid="quiz-error"
+    >
+      {{ library.error ?? quiz.error }}
     </p>
 
     <p id="quiz-start-reason" class="is-size-7 has-text-grey mb-2">

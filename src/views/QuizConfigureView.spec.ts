@@ -168,6 +168,19 @@ describe('QuizConfigureView', () => {
     expect([...saved.deckIds].sort()).toEqual([verbsId, nounsId].sort())
   })
 
+  it('reports a pool it could not read rather than blaming the decks', async () => {
+    const wrapper = await mountConfigure({ folder: spanishId })
+    vi.spyOn(repositories.cards, 'listByDecks').mockRejectedValue(new Error('Database is gone.'))
+
+    await wrapper.get('[data-testid="quiz-start"]').trigger('click')
+    await vi.waitUntil(() => wrapper.find('[data-testid="quiz-error"]').exists())
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="quiz-error"]').text()).toContain('Database is gone.')
+    expect(wrapper.find('[data-testid="quiz-empty"]').exists()).toBe(false)
+    expect(router.currentRoute.value.name).toBe('quiz-configure')
+  })
+
   it('explains an empty pool instead of navigating', async () => {
     const wrapper = await mountConfigure({ folder: spanishId })
     vi.spyOn(repositories.cards, 'listByDecks').mockResolvedValue([])
