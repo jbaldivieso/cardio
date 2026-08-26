@@ -378,3 +378,23 @@ about the element's contents.
 **Consequence.** `cursor: pointer` (`.cardio-tappable`) carries the affordance for
 pointer users. Anyone tempted to "fix" the missing role should read this first: the
 keyboard path is Edit, and it is tested.
+
+## ADR-028 — The slider's middle three tiers needed labels §6.2 does not give
+
+**Decision.** `tierLabel` returns, for tiers 1–7: "Only what I don't know", "Mostly
+unmastered", "Leaning unmastered", "A mix of both", "Leaning mastered", "Mostly
+mastered", "Only what I know".
+
+**Why.** §6.2's table labels only tiers 1, 2, 6 and 7; tier 4's cell reads "Default",
+which designates the starting position rather than describing the mix, and tiers 3 and 5
+are blank. A seven-stop slider has to say something at every stop — §7.5 shows the label
+beside it and item 08 asserts `aria-valuetext` — so the three gaps are filled with a
+scale that reads monotonically from one hard filter to the other.
+
+**Why not "Balanced" at tier 4.** Tier 4 is 60/40 unmastered-leaning on purpose
+(ADR-006). Calling it balanced would advertise the even split that decision explicitly
+declined to offer, so "A mix of both" says what is true without claiming 50/50.
+
+**Consequence.** The four labels §6.2 does give are verbatim; the other three are ours,
+and are the string the slider announces. Changing one is a UI copy change, not a spec
+deviation.

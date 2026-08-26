@@ -1,6 +1,6 @@
 # 06 — Quiz selection domain
 
-Status: not started
+Status: done
 Depends on: 02
 Spec: §6.1–§6.4 (config, tiers, buildSession, recordAnswer)
 
@@ -38,9 +38,9 @@ Use a seeded RNG helper (e.g. mulberry32) so every assertion is exact.
 
 ## Acceptance
 
-- [ ] `src/domain/quiz.ts` imports nothing outside `src/domain/`.
-- [ ] No `Math.random()` or `Date.now()` in the module.
-- [ ] 100% branch coverage, including every fallback path.
+- [x] `src/domain/quiz.ts` imports nothing outside `src/domain/`.
+- [x] No `Math.random()` or `Date.now()` in the module.
+- [x] 100% branch coverage, including every fallback path.
 
 ## Out of scope
 
