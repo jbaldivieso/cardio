@@ -185,6 +185,173 @@ describe('library store', () => {
     })
   })
 
+  describe('createDeck', () => {
+    it('adds the deck to its folder, in name order', async () => {
+      const folder = await repositories.folders.create('Spanish', 1000)
+      const store = useLibraryStore()
+      await store.load()
+
+      await store.createDeck(folder.id, 'Verbs')
+      await store.createDeck(folder.id, 'Nouns')
+
+      expect(store.decksIn(folder.id).map((deck) => deck.name)).toEqual(['Nouns', 'Verbs'])
+    })
+
+    it('counts a new deck as empty', async () => {
+      const folder = await repositories.folders.create('Spanish', 1000)
+      const store = useLibraryStore()
+      await store.load()
+
+      const deck = await store.createDeck(folder.id, 'Verbs')
+
+      expect(store.cardCount(deck!.id)).toBe(0)
+      expect(store.countsFor(folder.id)).toEqual({ decks: 1, cards: 0 })
+    })
+
+    it('persists the deck so a reload still has it', async () => {
+      const folder = await repositories.folders.create('Spanish', 1000)
+      const store = useLibraryStore()
+      await store.load()
+
+      await store.createDeck(folder.id, 'Verbs')
+      await store.load()
+
+      expect(store.decksIn(folder.id).map((deck) => deck.name)).toEqual(['Verbs'])
+    })
+
+    it('sets error and adds nothing when the folder is gone', async () => {
+      const store = useLibraryStore()
+      await store.load()
+
+      await store.createDeck('missing', 'Verbs')
+
+      expect(store.error).toBe('That folder no longer exists.')
+      expect(store.decks).toEqual([])
+    })
+  })
+
+  describe('renameDeck', () => {
+    it('updates the deck in place and persists it', async () => {
+      const folderId = await seedFolder('Spanish', ['Verbz'], 0)
+      const store = useLibraryStore()
+      await store.load()
+      const deck = store.decksIn(folderId)[0]
+
+      await store.renameDeck(deck.id, 'Verbs')
+      await store.load()
+
+      expect(store.decksIn(folderId).map((entry) => entry.name)).toEqual(['Verbs'])
+    })
+
+    it('sets error and changes nothing when the deck is gone', async () => {
+      const store = useLibraryStore()
+      await store.load()
+
+      await store.renameDeck('missing', 'Verbs')
+
+      expect(store.error).toBe('That deck no longer exists.')
+    })
+  })
+
+  describe('moveDeck', () => {
+    it('takes the deck out of the old folder and into the new one', async () => {
+      const from = await seedFolder('Spanish', ['Verbs'], 2)
+      const to = await seedFolder('French', [], 0)
+      const store = useLibraryStore()
+      await store.load()
+      const deck = store.decksIn(from)[0]
+
+      await store.moveDeck(deck.id, to)
+
+      expect(store.decksIn(from)).toEqual([])
+      expect(store.decksIn(to).map((entry) => entry.name)).toEqual(['Verbs'])
+    })
+
+    it("moves the deck's cards to the new folder's counts", async () => {
+      const from = await seedFolder('Spanish', ['Verbs'], 2)
+      const to = await seedFolder('French', [], 0)
+      const store = useLibraryStore()
+      await store.load()
+
+      await store.moveDeck(store.decksIn(from)[0].id, to)
+
+      expect(store.countsFor(from)).toEqual({ decks: 0, cards: 0 })
+      expect(store.countsFor(to)).toEqual({ decks: 1, cards: 2 })
+    })
+
+    it('persists the move', async () => {
+      const from = await seedFolder('Spanish', ['Verbs'], 1)
+      const to = await seedFolder('French', [], 0)
+      const store = useLibraryStore()
+      await store.load()
+
+      await store.moveDeck(store.decksIn(from)[0].id, to)
+      await store.load()
+
+      expect(store.decksIn(to).map((entry) => entry.name)).toEqual(['Verbs'])
+    })
+
+    it('sets error and changes nothing when the target folder is gone', async () => {
+      const from = await seedFolder('Spanish', ['Verbs'], 1)
+      const store = useLibraryStore()
+      await store.load()
+
+      await store.moveDeck(store.decksIn(from)[0].id, 'missing')
+
+      expect(store.error).toBe('That folder no longer exists.')
+      expect(store.decksIn(from)).toHaveLength(1)
+    })
+  })
+
+  describe('removeDeck', () => {
+    it('drops the deck and its cards from the folder counts', async () => {
+      const folderId = await seedFolder('Spanish', ['Verbs', 'Nouns'], 2)
+      const store = useLibraryStore()
+      await store.load()
+      const deck = store.decksIn(folderId).find((entry) => entry.name === 'Verbs')!
+
+      await store.removeDeck(deck.id)
+
+      expect(store.decksIn(folderId).map((entry) => entry.name)).toEqual(['Nouns'])
+      expect(store.countsFor(folderId)).toEqual({ decks: 1, cards: 2 })
+    })
+
+    it('persists the deletion', async () => {
+      const folderId = await seedFolder('Spanish', ['Verbs'], 2)
+      const store = useLibraryStore()
+      await store.load()
+
+      await store.removeDeck(store.decksIn(folderId)[0].id)
+      await store.load()
+
+      expect(store.decksIn(folderId)).toEqual([])
+    })
+  })
+
+  describe('lookups', () => {
+    it('finds a folder by id', async () => {
+      const store = useLibraryStore()
+      await store.load()
+
+      expect(store.folder(UNSORTED_FOLDER_ID)?.name).toBe('Unsorted')
+    })
+
+    it('has no folder for an id that is not there', async () => {
+      const store = useLibraryStore()
+      await store.load()
+
+      expect(store.folder('missing')).toBeUndefined()
+    })
+
+    it('finds a deck by id', async () => {
+      const folderId = await seedFolder('Spanish', ['Verbs'], 0)
+      const store = useLibraryStore()
+      await store.load()
+
+      expect(store.deck(store.decksIn(folderId)[0].id)?.name).toBe('Verbs')
+    })
+  })
+
   it('clears a previous error once an action succeeds', async () => {
     const store = useLibraryStore()
     await store.load()

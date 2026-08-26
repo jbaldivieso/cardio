@@ -276,3 +276,18 @@ the dialog opening.
 repository-level answer to the same question, which item 10's export path can use.
 A confirmation is only as fresh as the last `load()`; for a single-user offline app with
 no background writer, that is exactly as fresh as the row the user just clicked.
+
+## ADR-022 — Route parameters reach a screen as props
+
+**Decision.** Routes with parameters are declared `props: true`, so `FolderView` takes
+`folderId` as a prop rather than reading `useRoute().params`. Route names and paths — the
+stable API tests rely on (§7) — are untouched.
+
+**Why.** A screen that takes its subject as a prop is a plain component: its spec mounts
+it with `props: { folderId }`, with no router to build, no history to seed and no
+navigation to await. Reading the parameter inside the view would have pulled a real router
+into every view spec purely to supply one string.
+
+**Consequence.** Views declare exactly what they need from the URL, and a missing or
+unknown id is handled in one place — the "that folder is not here" branch — rather than
+depending on what the router happened to put in `params`.

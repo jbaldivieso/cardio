@@ -54,6 +54,14 @@ export const useLibraryStore = defineStore('library', () => {
     return cardCounts.value[deckId] ?? 0
   }
 
+  function folder(id: string): Folder | undefined {
+    return folders.value.find((entry) => entry.id === id)
+  }
+
+  function deck(id: string): Deck | undefined {
+    return decks.value.find((entry) => entry.id === id)
+  }
+
   /** Unsorted is the one folder the UI must not offer to delete (§4.2). */
   function canDeleteFolder(folderId: string): boolean {
     return folderId !== UNSORTED_FOLDER_ID
@@ -125,6 +133,43 @@ export const useLibraryStore = defineStore('library', () => {
     })
   }
 
+  async function createDeck(folderId: string, name: string): Promise<Deck | undefined> {
+    return attempt(async () => {
+      const created = await repositories.decks.create(folderId, name, Date.now())
+      decks.value = [...decks.value, created].sort(byName)
+      cardCounts.value = { ...cardCounts.value, [created.id]: 0 }
+      return created
+    })
+  }
+
+  async function renameDeck(id: string, name: string): Promise<Deck | undefined> {
+    return attempt(async () => {
+      const renamed = await repositories.decks.rename(id, name, Date.now())
+      decks.value = decks.value.map((entry) => (entry.id === id ? renamed : entry)).sort(byName)
+      return renamed
+    })
+  }
+
+  /** The deck keeps its cards; only which folder's counts they land in changes. */
+  async function moveDeck(id: string, folderId: string): Promise<Deck | undefined> {
+    return attempt(async () => {
+      const moved = await repositories.decks.move(id, folderId, Date.now())
+      decks.value = decks.value.map((entry) => (entry.id === id ? moved : entry)).sort(byName)
+      return moved
+    })
+  }
+
+  /** Cascades to the deck's cards in the database (§4.4). */
+  async function removeDeck(id: string): Promise<void> {
+    await attempt(async () => {
+      await repositories.decks.remove(id)
+      decks.value = decks.value.filter((entry) => entry.id !== id)
+      cardCounts.value = Object.fromEntries(
+        Object.entries(cardCounts.value).filter(([deckId]) => deckId !== id),
+      )
+    })
+  }
+
   return {
     folders,
     decks,
@@ -134,9 +179,15 @@ export const useLibraryStore = defineStore('library', () => {
     decksIn,
     cardCount,
     canDeleteFolder,
+    folder,
+    deck,
     load,
     createFolder,
     renameFolder,
     removeFolder,
+    createDeck,
+    renameDeck,
+    moveDeck,
+    removeDeck,
   }
 })

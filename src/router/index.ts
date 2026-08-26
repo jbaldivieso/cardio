@@ -9,6 +9,9 @@ export const router = createRouter({
     {
       path: '/folders/:folderId',
       name: 'folder',
+      // The screen is a function of its route parameter, so it takes it as a
+      // prop and its spec can mount it without a router.
+      props: true,
       component: () => import('@/views/FolderView.vue'),
     },
     { path: '/decks/:deckId', name: 'deck', component: () => import('@/views/DeckView.vue') },
