@@ -237,3 +237,144 @@ that exists only for tests.
 
 **Consequence.** A failed write never triggers the request, and a missing or rejecting
 Storage API resolves to `false` rather than failing the write that triggered it.
+
+## ADR-020 — Stores reach their repositories through one swappable record
+
+**Decision.** Stores import `repositories` from `src/stores/repositories.ts` — a single
+record holding the `folderRepo`, `deckRepo` and `cardRepo` singletons — rather than
+importing each singleton directly. `src/test/repositories.ts` swaps its three entries for
+repositories bound to a per-spec `CardioDb` and restores them afterwards.
+
+**Why.** Every spec needs its own database name (CLAUDE.md > Gotchas), but the singletons
+are bound to the real `db` at import time. The alternatives were worse: `vi.mock` of three
+modules in every store and component spec, repeated per file and re-resolving the mocked
+binding on each access; or fake repositories, which would have tested the store against a
+stub instead of against Dexie, leaving "create persists" unproven. With the record, store
+and component specs exercise the real repositories over `fake-indexeddb`, so a store test
+that writes and reloads really does prove persistence.
+
+**Consequence.** One mutable module-level record exists that application code only reads.
+Component specs get the same seam for free, which is what lets `FoldersView.spec.ts` mount
+the real view over a real database. Specs that mount a view must wait for the database to
+open — `fake-indexeddb` resolves its first read over several turns of the event loop, so
+`flushPromises()` alone is not enough and `vi.waitUntil` / `vi.waitFor` are used instead.
+
+## ADR-021 — Confirmation wording is a pure function, over counts already in the store
+
+**Decision.** `src/domain/prompts.ts` builds the §4.4 sentence
+(`deleteFolderPrompt`, `countLabel`); the counts it is given come from the library store's
+single pass over the loaded decks, not from a `folderRepo.contents()` query per row.
+
+**Why.** The exact wording is an acceptance criterion, and a pure function makes it
+assertable without mounting a dialog — pluralisation included, which is the part that
+would otherwise be untested logic inside an SFC. The counts are already loaded to render
+each row ("2 decks · 6 cards"), so querying them again on the way into the dialog would
+be a second source of truth for the same number, and an async step between the click and
+the dialog opening.
+
+**Consequence.** `folderRepo.contents()` is currently unused by the app. It stays as the
+repository-level answer to the same question, which item 10's export path can use.
+A confirmation is only as fresh as the last `load()`; for a single-user offline app with
+no background writer, that is exactly as fresh as the row the user just clicked.
+
+## ADR-022 — Route parameters reach a screen as props
+
+**Decision.** Routes with parameters are declared `props: true`, so `FolderView` takes
+`folderId` as a prop rather than reading `useRoute().params`. Route names and paths — the
+stable API tests rely on (§7) — are untouched.
+
+**Why.** A screen that takes its subject as a prop is a plain component: its spec mounts
+it with `props: { folderId }`, with no router to build, no history to seed and no
+navigation to await. Reading the parameter inside the view would have pulled a real router
+into every view spec purely to supply one string.
+
+**Consequence.** Views declare exactly what they need from the URL, and a missing or
+unknown id is handled in one place — the "that folder is not here" branch — rather than
+depending on what the router happened to put in `params`.
+
+## ADR-023 — The markdown cache is a general memoiser, not private state
+
+**Decision.** `src/domain/memoise.ts` provides `memoise(compute, limit)`, a bounded
+least-recently-used cache around a pure function. `renderMarkdown` is that function applied
+to markdown-it with a 500-entry limit (§8).
+
+**Why.** §8 asks for memoisation _and_ a bound, but a bound has no observable effect through
+`renderMarkdown`: strings compare by value, so a cache hit and a re-render are
+indistinguishable from outside. Keeping the cache private would have left "bounded" either
+untested or tested through a hook that exists only for tests. As its own function it is
+testable the honest way — a spy counts how often the wrapped function actually runs, which
+is what proves both the caching and the eviction.
+
+**Consequence.** One more domain module, reusable for item 09's per-deck summaries, which
+have the same shape of problem. `Map` insertion order is what makes the LRU work: reading an
+entry deletes and re-sets it, so the oldest key is always the first one out.
+
+## ADR-024 — The cards store does not write back into the library's counts
+
+**Decision.** `src/stores/cards.ts` owns the card list of the deck on screen. Adding or
+deleting a card does not adjust the deck and folder counts held by `src/stores/library.ts`.
+
+**Why.** Every screen calls `load()` on mount, so the counts a user sees after navigating
+back are read from the database, not from whatever a previous screen remembered. Wiring the
+cards store into the library's counters would add a second way for those numbers to be
+right, and a way for them to drift — the count would then have two authors, one of which
+(the loader) periodically overwrites the other.
+
+**Consequence.** The two stores stay independent, and neither imports the other. The counts
+are as fresh as the last mount, which for a single-user offline app with no background
+writer is always. If a future screen ever shows a live count beside a card list without
+remounting, it should read `cards.cards.length` rather than have the cards store push a
+number sideways.
+
+## ADR-025 — A dialog holding typed input survives a refused write
+
+**Decision.** `NameDialog`, `MoveDialog` and `BulkAddDialog` take an `error` prop and stay
+open when the write behind them is rejected, showing the reason inside the dialog with the
+input still in it. `ConfirmDialog` closes either way and lets the screen's error banner
+explain.
+
+**Why.** Every dialog used to close unconditionally, so a rejected write threw away what
+the user had typed along with the attempt. That is cheap for a folder name and expensive
+for a bulk paste — a batch assembled over several minutes could vanish because of one bad
+line, with a message that named no line. The split is about what there is to lose: a
+confirmation holds nothing, so keeping it open would only hide the banner that explains
+the failure, since a modal covers the screen the banner is on. That covering is also why
+a dialog that stays open must carry the message itself: staying open without one is worse
+than closing, because the reason ends up behind the modal.
+
+**Consequence.** Each view owns a `dialogError` alongside `dialog`, and `openDialog()` is
+the one way to change either, so the error cannot outlive the dialog that caused it. The
+store's own `error` still drives the screen-level banner; the dialog copy is a snapshot
+taken at the moment a submit failed.
+
+## ADR-026 — Bulk add checks face length, which §9 does not list
+
+**Decision.** `parseBulk` reports a face longer than `FACE_MAX_LENGTH` as a numbered
+error, alongside the missing-separator and empty-face cases §9 does enumerate.
+
+**Why.** §9's list is about lines the parser cannot read, and §4.2's length limit is
+enforced at the repository. Between the two sat a gap: an over-long line parsed clean,
+then `createMany` rejected the entire batch with a message that named no line number,
+because validation there is per-face and not per-line. Checking it during the parse puts
+the complaint where every other complaint about a line already goes.
+
+**Consequence.** `src/domain/bulkParse.ts` imports `FACE_MAX_LENGTH` from
+`src/domain/validation.ts` — domain to domain, so the layer stays pure. The repository
+still validates, since it is the boundary that has to; the parser now just makes sure the
+batch it hands over will pass.
+
+## ADR-027 — The card row is a pointer shortcut, not a button
+
+**Decision.** `CardRow`'s whole-row click has no `role="button"` and no `tabindex`. The
+row's own **Edit** button is the focusable control that reaches the editor.
+
+**Why.** §7.3 asks that tapping a row open the editor. Making the row itself a button
+would nest interactive elements inside it — the row's Edit and Delete buttons, plus any
+link the front's markdown rendered — which assistive technology handles worse than a
+plain container, and the front cannot be wrapped in a `<button>` for the same reason. A
+duplicate control that is already reachable is the better answer than a role that lies
+about the element's contents.
+
+**Consequence.** `cursor: pointer` (`.cardio-tappable`) carries the affordance for
+pointer users. Anyone tempted to "fix" the missing role should read this first: the
+keyboard path is Edit, and it is tested.

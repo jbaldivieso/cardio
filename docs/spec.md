@@ -479,8 +479,10 @@ new MarkdownIt({ html: false, linkify: true, breaks: true, typographer: false })
 - Supported by consequence: emphasis, headings, lists, blockquotes, inline code, fenced
   code, tables, links.
 - The `image` rule is **disabled** (`md.disable('image')`): `![alt](url)` would emit an
-  `<img>` and reach the network, which §13 forbids. It renders as its literal source
-  text instead.
+  `<img>` and reach the network, which §13 forbids. With that rule off, the `!` stays as
+  text and the `[alt](url)` after it is still read as a link, so the whole thing renders
+  as `!<a href="url" target="_blank" rel="noopener noreferrer">alt</a>`. Nothing is
+  fetched — following the link is the reader's choice, not the page's.
 - Links get `target="_blank" rel="noopener noreferrer"` via a renderer rule.
 - Rendering is memoised by source string (bounded LRU, e.g. 500 entries) since quiz
   screens re-render the same faces repeatedly.

@@ -1,6 +1,6 @@
 # 05 — Cards, markdown and bulk add
 
-Status: not started
+Status: done
 Depends on: 01, 04
 Spec: §7.3, §7.4, §8 (markdown), §9 (bulk add)
 
@@ -54,12 +54,47 @@ Views:
 
 ## Acceptance
 
-- [ ] Cards persist and reload.
-- [ ] `v-html` appears in `MarkdownText.vue` and nowhere else (grep it).
-- [ ] Bulk add writes in a single transaction.
-- [ ] `npm run verify` green.
+- [x] Cards persist and reload.
+- [x] `v-html` appears in `MarkdownText.vue` and nowhere else (grep it).
+- [x] Bulk add writes in a single transaction.
+- [x] `npm run verify` green.
 
 ## Out of scope
 
 Mastery badges on rows (item 09). Search, tags, multi-line bulk faces — out of scope
 entirely (§2).
+
+## Notes
+
+- The bounded LRU is its own pure function, `src/domain/memoise.ts`, rather than private
+  state inside `markdown.ts`. Eviction has no observable effect through `renderMarkdown`
+  alone — two equal strings are equal whether or not the cache held one — so testing the
+  bound at all meant testing it where a spy can count the misses (ADR-023).
+- `src/stores/errors.ts` holds the `error` / `attempt` pair both stores use; item 03's
+  copy in `library.ts` moved there rather than being duplicated in `cards.ts`.
+- The card faces of a deck live in `src/stores/cards.ts`, separate from `library`. It does
+  not push counts back into the library store: every screen reloads on mount, so the
+  folder and deck counts are recomputed from the database on the way back (ADR-024).
+- The unsaved-changes confirmation is an `onBeforeRouteLeave` guard, so it covers the nav
+  bar and the back button as well as Cancel (§7.4). That is why `CardEditView.spec.ts`
+  mounts through a `RouterView` at the real route instead of mounting the view with props.
+- `deck`, `card-new` and `card-edit` now take their route parameters as props, as item 04
+  did for `folder` (ADR-022).
+
+## Review follow-ups
+
+Found in review of the item's PR and fixed on the same branch:
+
+- A refused bulk import used to close the dialog and discard the paste. It now stays open
+  with the reason and the text intact (ADR-025), and `parseBulk` reports an over-long face
+  against its line number rather than letting the whole batch fail at the write (ADR-026).
+- The editor's character counter measured the raw face while the limit applied to the
+  trimmed one, so a padded face could read `4010 / 4000` with Save still enabled. Both
+  count the trimmed face now.
+- A rejected read of a card reported "that card is not here" as well as the error. Only
+  the absence of both a card and an error means missing.
+- Spec §8 claimed a disabled `image` rule renders `![alt](url)` as its literal source
+  text. It does not — the `!` is left as text and the rest is still a link. §8 now
+  describes what actually happens; §13 was never at risk, since nothing is fetched.
+- `CardRow`'s row-level tap is documented as a pointer shortcut, with Edit as the
+  keyboard path (ADR-027).
