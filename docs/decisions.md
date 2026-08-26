@@ -398,3 +398,38 @@ declined to offer, so "A mix of both" says what is true without claiming 50/50.
 **Consequence.** The four labels §6.2 does give are verbatim; the other three are ours,
 and are the string the slider announces. Changing one is a UI copy change, not a spec
 deviation.
+
+## ADR-029 — §6.4 is written once, in the domain, and the repository wraps it
+
+**Decision.** `cardRepo.recordAttempt` computes the new statistics by calling
+`recordAnswer` from `src/domain/quiz.ts` rather than re-deriving them; its own job is
+the transaction, the history cap and leaving `updatedAt` alone.
+
+**Why.** The repository landed in item 01, before the domain had a §6.4 function, so it
+carried its own copy of the counter-and-history rule. Item 06 then delivered
+`recordAnswer` as the canonical one. Two implementations of the same paragraph is one
+too many: the next change to the rule — a different cap, a third outcome — would have
+had to find both.
+
+**Consequence.** `src/db/` imports from `src/domain/`, which is the direction the
+architecture already allows (it does so for `models` and `validation`). The store writes
+answers through `recordAttempt`, so the read-modify-write stays inside one Dexie
+transaction and no in-memory copy can clobber a counter.
+
+## ADR-030 — The quiz card is a tappable container, not a button
+
+**Decision.** `QuizCard`'s flip surface is a plain element with a click handler and
+`cursor: pointer`. `Space` and `Enter` reach it through a document-level `keydown`
+listener, which also carries the `1` / `←` / `2` / `→` grading shortcuts of §7.6.
+
+**Why.** §7.6 asks that tap, click, `Space` and `Enter` all flip the card. The obvious
+way — make the card a `<button>` — nests whatever the face's markdown rendered (links,
+lists) inside a button, which is the same problem ADR-027 settled for the card row, only
+worse here because the face is the whole screen. A document listener gives the keyboard
+the same four inputs without lying about the element's contents, and it is what makes
+grading reachable from the keyboard at all, since §7.6 wants no reveal button to focus.
+
+**Consequence.** The listener is global while a card is mounted, so anything drawn on
+top of the quiz has to say so: `keyboardActive` is false while the leave confirmation is
+open, and `QuizRunView` is the one place that sets it. A future overlay over the running
+quiz must do the same.

@@ -4,6 +4,7 @@ import { durableWrite } from '@/db/persistence'
 import { byNewestFirst } from '@/db/sorting'
 import { MASTERY_HISTORY_LIMIT, emptyStats } from '@/domain/models'
 import type { Card, CardStats } from '@/domain/models'
+import { recordAnswer } from '@/domain/quiz'
 import { validateFace, ValidationError } from '@/domain/validation'
 
 /** The editable content of a card: what the editor and bulk add both produce. */
@@ -137,12 +138,9 @@ export function createCardRepo(database: CardioDb = db): CardRepo {
       return durableWrite(database, () =>
         database.transaction('rw', database.cards, async () => {
           const card = await requireCard(id)
-          return writeStats(card, {
-            gets: card.stats.gets + (got ? 1 : 0),
-            misses: card.stats.misses + (got ? 0 : 1),
-            history: [...card.stats.history, { at: now, got }],
-            lastSeenAt: now,
-          })
+          // §6.4 is stated once, in the domain; this is the transaction it
+          // needs (docs/decisions.md > ADR-029).
+          return writeStats(card, recordAnswer(card.stats, got, now))
         }),
       )
     },

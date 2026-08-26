@@ -1,6 +1,6 @@
 # 07 — Quiz runner UI
 
-Status: not started
+Status: done
 Depends on: 05, 06
 Spec: §6.5, §6.6, §7.6, §7.7
 
@@ -46,11 +46,11 @@ Store:
 
 ## Acceptance
 
-- [ ] A full quiz can be run start to finish and the summary matches the answers.
-- [ ] Answers are already saved if you abandon mid-quiz (assert at the repository level).
-- [ ] Leaving mid-quiz confirms first.
-- [ ] Long faces scroll inside the card; the page never scrolls horizontally at 360 px.
-- [ ] Keyboard-only operation works end to end.
+- [x] A full quiz can be run start to finish and the summary matches the answers.
+- [x] Answers are already saved if you abandon mid-quiz (assert at the repository level).
+- [x] Leaving mid-quiz confirms first.
+- [x] Long faces scroll inside the card; the page never scrolls horizontally at 360 px.
+- [x] Keyboard-only operation works end to end.
 
 ## Out of scope
 
