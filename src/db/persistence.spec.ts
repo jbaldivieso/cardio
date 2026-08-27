@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CardioDb } from '@/db'
-import { durableWrite, requestPersistentStorage } from '@/db/persistence'
+import { durableWrite, isStoragePersistent, requestPersistentStorage } from '@/db/persistence'
 
 function stubStorage(persist: () => Promise<boolean>): { persist: ReturnType<typeof vi.fn> } {
   const storage = { persist: vi.fn(persist) }
@@ -31,6 +31,28 @@ describe('requestPersistentStorage', () => {
     }
 
     await expect(requestPersistentStorage({ persist })).resolves.toBe(false)
+  })
+})
+
+describe('isStoragePersistent', () => {
+  it('reports that the browser has already made this origin persistent', async () => {
+    await expect(isStoragePersistent({ persisted: async () => true })).resolves.toBe(true)
+  })
+
+  it('reports storage the browser may still evict', async () => {
+    await expect(isStoragePersistent({ persisted: async () => false })).resolves.toBe(false)
+  })
+
+  it('reports false when the browser has no Storage API to ask', async () => {
+    await expect(isStoragePersistent(undefined)).resolves.toBe(false)
+  })
+
+  it('reports false rather than throwing when the query is refused', async () => {
+    const persisted = async (): Promise<boolean> => {
+      throw new Error('not allowed')
+    }
+
+    await expect(isStoragePersistent({ persisted })).resolves.toBe(false)
   })
 })
 

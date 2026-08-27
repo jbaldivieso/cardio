@@ -3,6 +3,9 @@ import type { CardioDb } from '@/db'
 /** The sliver of `navigator.storage` this module uses; keeps the tests cast-free. */
 export type DurableStorage = Pick<StorageManager, 'persist'>
 
+/** The half of it that only reports, for the settings screen's status (§7.8). */
+export type QueryableStorage = Pick<StorageManager, 'persisted'>
+
 /**
  * Ask the browser to make this origin's storage persistent (spec §4.5).
  *
@@ -16,6 +19,23 @@ export async function requestPersistentStorage(
   if (!storage?.persist) return false
   try {
     return await storage.persist()
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Whether the browser has already promised to keep this origin's data (§7.8).
+ *
+ * Only ever a report: a browser that cannot answer is one whose storage the
+ * user should treat as evictable, which is exactly what `false` says.
+ */
+export async function isStoragePersistent(
+  storage: QueryableStorage | undefined = globalThis.navigator?.storage,
+): Promise<boolean> {
+  if (!storage?.persisted) return false
+  try {
+    return await storage.persisted()
   } catch {
     return false
   }
