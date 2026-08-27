@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, useId } from 'vue'
+import { computed, onMounted, ref, useId } from 'vue'
+import ModalShell from '@/components/ModalShell.vue'
 import { NAME_MAX_LENGTH } from '@/domain/validation'
 
 /**
@@ -30,77 +31,47 @@ function submit(): void {
   emit('submit', trimmed.value)
 }
 
-function onKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') emit('cancel')
-}
-
-// On the document rather than the dialog: Escape has to work wherever the focus
-// went after the modal opened.
-onMounted(() => {
-  document.addEventListener('keydown', onKeydown)
-  input.value?.focus()
-})
-
-onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
+onMounted(() => input.value?.focus())
 </script>
 
 <template>
-  <div class="modal is-active" data-testid="name-dialog">
-    <div class="modal-background" @click="emit('cancel')" />
-    <form
-      class="modal-card"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="title"
-      @submit.prevent="submit"
-    >
-      <header class="modal-card-head">
-        <p class="modal-card-title">{{ title }}</p>
-        <button
-          type="button"
-          class="delete cardio-close"
-          aria-label="Close"
-          @click="emit('cancel')"
+  <ModalShell :title="title" testid="name-dialog" form @cancel="emit('cancel')" @submit="submit">
+    <div class="field">
+      <label class="label" :for="inputId">{{ label }}</label>
+      <div class="control">
+        <input
+          :id="inputId"
+          ref="input"
+          v-model="name"
+          class="input"
+          type="text"
+          :maxlength="NAME_MAX_LENGTH"
+          data-testid="name-input"
         />
-      </header>
-      <section class="modal-card-body">
-        <div class="field">
-          <label class="label" :for="inputId">{{ label }}</label>
-          <div class="control">
-            <input
-              :id="inputId"
-              ref="input"
-              v-model="name"
-              class="input"
-              type="text"
-              :maxlength="NAME_MAX_LENGTH"
-              data-testid="name-input"
-            />
-          </div>
-        </div>
+      </div>
+    </div>
 
-        <div v-if="error" class="notification is-danger is-light" data-testid="name-error">
-          {{ error }}
-        </div>
-      </section>
-      <footer class="modal-card-foot is-justify-content-flex-end is-gap-2">
-        <button
-          type="button"
-          class="button cardio-action"
-          data-testid="name-cancel"
-          @click="emit('cancel')"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          class="button is-primary cardio-action"
-          :disabled="trimmed.length === 0"
-          data-testid="name-save"
-        >
-          {{ confirmLabel }}
-        </button>
-      </footer>
-    </form>
-  </div>
+    <div v-if="error" class="notification is-danger is-light" data-testid="name-error">
+      {{ error }}
+    </div>
+
+    <template #footer>
+      <button
+        type="button"
+        class="button cardio-action"
+        data-testid="name-cancel"
+        @click="emit('cancel')"
+      >
+        Cancel
+      </button>
+      <button
+        type="submit"
+        class="button is-primary cardio-action"
+        :disabled="trimmed.length === 0"
+        data-testid="name-save"
+      >
+        {{ confirmLabel }}
+      </button>
+    </template>
+  </ModalShell>
 </template>

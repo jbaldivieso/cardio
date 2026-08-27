@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
@@ -6,8 +7,15 @@ import { VitePWA } from 'vite-plugin-pwa'
 // Deployed to https://jbaldivieso.github.io/cardio/ — every asset path is base-relative.
 const BASE = '/cardio/'
 
+// The settings screen shows the app version (§7.8). package.json is the one
+// place it is written down; the build stamps it in so nothing can drift.
+const pkg: { version: string } = JSON.parse(
+  readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
+)
+
 export default defineConfig({
   base: BASE,
+  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   plugins: [
     vue(),
     VitePWA({

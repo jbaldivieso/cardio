@@ -1,10 +1,12 @@
 /**
- * Wording that has to be exact: the destructive confirmations (spec §4.4) and
- * the mastery bar's own two sentences (§7.9). Pure, so what a screen says is
- * assertable without mounting anything.
+ * Wording that has to be exact: the destructive confirmations (spec §4.4, §7.8),
+ * the mastery bar's own two sentences (§7.9) and what an import says about a
+ * file before it loads it (§10). Pure, so what a screen says is assertable
+ * without mounting anything.
  */
 
 import type { MasterySummary } from '@/domain/aggregates'
+import type { BackupRepairs, LibraryCounts } from '@/domain/backup'
 
 /** `4 decks`, `1 deck`. English pluralisation only — i18n is out of scope (§2). */
 export function countLabel(count: number, singular: string): string {
@@ -50,4 +52,51 @@ export function masteryHeadline(summary: MasterySummary): string {
 export function masteryLabel(summary: MasterySummary): string {
   if (summary.total === 0) return NO_CARDS
   return `${masteryHeadline(summary)}, ${summary.learning} learning, ${summary.new} new`
+}
+
+/** "3 folders, 4 decks and 212 cards": a whole library in one phrase (§7.8, §10). */
+export function libraryLabel(counts: LibraryCounts): string {
+  return `${countLabel(counts.folders, 'folder')}, ${countLabel(counts.decks, 'deck')} and ${countLabel(counts.cards, 'card')}`
+}
+
+/**
+ * The danger zone's own line (§7.8). `null` counts mean the library could not be
+ * read: quoting the zeros that come of a failed read would tell the user there
+ * is nothing to lose immediately before offering to delete it all.
+ */
+export function storedPrompt(counts: LibraryCounts | null): string {
+  const stored = counts === null ? 'Everything you have is' : `${libraryLabel(counts)}`
+  return `${stored} stored in this browser. There is no undo and no trash.`
+}
+
+/** The typed confirmation before the library goes (§7.8). */
+export function deleteEverythingPrompt(counts: LibraryCounts | null): string {
+  const names = counts === null ? '' : ` — ${libraryLabel(counts)}`
+  return `This deletes every folder, deck and card you have${names}. Unsorted comes back empty; nothing else comes back at all.`
+}
+
+/** The typed confirmation before a backup takes the library's place (§10). */
+export function replaceEverythingPrompt(counts: LibraryCounts | null): string {
+  const clears =
+    counts === null
+      ? 'everything in this browser and loads the backup in its place'
+      : `${libraryLabel(counts)} and loads the backup in their place`
+  return `This clears ${clears}. There is no undo.`
+}
+
+/** What a validated file holds, said before a single row of it is written (§10). */
+export function importPreview(counts: LibraryCounts): string {
+  return `That backup holds ${libraryLabel(counts)}.`
+}
+
+/** What validation had to put right to make the file loadable, a line each (§10). */
+export function repairNotes(repairs: BackupRepairs): string[] {
+  const notes: string[] = []
+  if (repairs.rehomedDecks > 0) {
+    notes.push(`${countLabel(repairs.rehomedDecks, 'deck')} with no folder will go to Unsorted.`)
+  }
+  if (repairs.rejectedCards > 0) {
+    notes.push(`${countLabel(repairs.rejectedCards, 'card')} with no deck will be left out.`)
+  }
+  return notes
 }

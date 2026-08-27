@@ -38,11 +38,10 @@ Every way into a quiz: one-tap quickstart from a deck or folder, and the custom 
 - [x] Defaults are exactly those in spec §6.1.
 - [x] Config round-trips through `localStorage`; corrupt stored JSON falls back to
       defaults instead of throwing.
-- [ ] `npm run verify` green; `PlaceholderPanel.vue` is now deleted.
-      **Not met, and not worked around.** `npm run verify` is green, but
-      `PlaceholderPanel.vue` cannot go yet: `SettingsView.vue` still renders it, and the
-      settings screen is item 10. Deleting the component now would leave `/settings`
-      with nothing to show. Delete it with the last usage, in item 10.
+- [x] `npm run verify` green; `PlaceholderPanel.vue` is now deleted.
+      Deferred at the time: `SettingsView.vue` was still rendering it, and the settings
+      screen was item 10. Item 10 built that screen and deleted the component with its
+      last usage.
 
 ## Out of scope
 

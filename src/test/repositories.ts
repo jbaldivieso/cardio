@@ -12,6 +12,7 @@ import { CardioDb } from '@/db'
 import { createCardRepo } from '@/db/repositories/cards'
 import { createDeckRepo } from '@/db/repositories/decks'
 import { createFolderRepo } from '@/db/repositories/folders'
+import { createLibraryRepo } from '@/db/repositories/library'
 import { repositories } from '@/stores/repositories'
 
 export interface TestDatabase {
@@ -29,6 +30,7 @@ export function useTestDatabase(): TestDatabase {
     repositories.folders = createFolderRepo(db)
     repositories.decks = createDeckRepo(db)
     repositories.cards = createCardRepo(db)
+    repositories.library = createLibraryRepo(db)
   })
 
   afterEach(async () => {

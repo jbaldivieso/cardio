@@ -165,6 +165,18 @@ describe('mastery store', () => {
     expect(mastery.deckSummary(deckId)?.mastered).toBe(1)
   })
 
+  it('drops every summary when the whole library has been rewritten', async () => {
+    const verbs = await seedDeck('Verbs', 1)
+    const nouns = await seedDeck('Nouns', 1)
+    const mastery = useMasteryStore()
+    await mastery.ensure([verbs, nouns])
+
+    mastery.invalidateAll()
+
+    expect(mastery.deckSummary(verbs)).toBeUndefined()
+    expect(mastery.deckSummary(nouns)).toBeUndefined()
+  })
+
   it('invalidates one deck without disturbing what it knows about the others', async () => {
     const verbs = await seedDeck('Verbs', 1)
     const nouns = await seedDeck('Nouns', 1)
@@ -295,21 +307,21 @@ describe('mastery store', () => {
     return release
   }
 
-  it('throws away a summary read before a write that landed mid-read', async () => {
+  it('replaces a summary a library-wide write landed on top of mid-read', async () => {
     const deckId = await seedDeck('Verbs', 1)
     const mastery = useMasteryStore()
     const release = await readHeldOpen([deckId])
 
     const reading = mastery.ensure([deckId])
     await answerFiveTimes(deckId, Date.now())
-    mastery.invalidate(deckId)
+    mastery.invalidateAll()
     release()
     await reading
 
-    expect(mastery.deckSummary(deckId)).toBeUndefined()
+    expect(mastery.deckSummary(deckId)?.mastered).toBe(1)
   })
 
-  it('re-reads a deck whose mid-read summary it threw away', async () => {
+  it('replaces a summary a write landed on top of mid-read', async () => {
     const deckId = await seedDeck('Verbs', 1)
     const mastery = useMasteryStore()
     const release = await readHeldOpen([deckId])
@@ -319,7 +331,22 @@ describe('mastery store', () => {
     mastery.invalidate(deckId)
     release()
     await reading
-    await mastery.ensure([deckId])
+
+    expect(mastery.deckSummary(deckId)?.mastered).toBe(1)
+  })
+
+  it('re-reads a deck whose mid-read summary it threw away without being asked twice', async () => {
+    const deckId = await seedDeck('Verbs', 1)
+    const mastery = useMasteryStore()
+    const release = await readHeldOpen([deckId])
+
+    // No second `ensure`: the screen that asked is watching a list of decks
+    // that has not changed, so nothing else is going to ask again.
+    const reading = mastery.ensure([deckId])
+    await answerFiveTimes(deckId, Date.now())
+    mastery.invalidate(deckId)
+    release()
+    await reading
 
     expect(mastery.deckSummary(deckId)?.mastered).toBe(1)
   })
@@ -336,7 +363,7 @@ describe('mastery store', () => {
     release()
     await reading
 
-    expect(mastery.deckSummary(verbs)).toBeUndefined()
+    expect(mastery.deckSummary(verbs)?.mastered).toBe(1)
     expect(mastery.deckSummary(nouns)?.total).toBe(1)
   })
 

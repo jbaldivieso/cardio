@@ -501,3 +501,156 @@ rendered `style` assertable against the spec's own example (5 / 3 / 2 → 50 / 3
 component maps the three numbers onto Bulma's `has-background-success`,
 `has-background-warning`, and plain `has-background` — the theme's neutral, which is also
 the empty track, so the untried share reads as bar that has not been filled in yet.
+
+## ADR-034 — A backup's orphans are repaired, not refused
+
+**Decision.** `validateBackup` rejects a file for its envelope (`app`, `schemaVersion`), a
+missing table, or any row that breaks §4.2 — and writes nothing when it does. Broken
+_references_ are different: a deck whose folder is not in the file is re-homed to
+Unsorted, a card whose deck is not in the file is dropped, and both are counted and shown
+before the import runs.
+
+**Why.** §10 asks for exactly this ("orphans are re-homed: decks to Unsorted, cards are
+rejected with a count"), while the plan file's "Rejects:" list also names those two cases
+as rejections. Its next bullet then asks for the re-homing, so the two readings cannot
+both hold. The spec is canonical, and it is also the better behaviour: a backup is the
+user's only copy, and refusing all 4,000 cards over one dangling deck id is the one
+outcome nobody wants.
+
+**Consequence.** A partially hand-edited file will quietly flatten decks into Unsorted, so
+the settings screen names every repair before the user chooses merge or replace, rather
+than reporting them afterwards. Validation is file-scoped, as §10 writes it: it does not
+consult the live library, so a deck referencing a folder that exists on disk but not in
+the file is still re-homed.
+
+## ADR-035 — The reserved Unsorted id belongs to the domain
+
+**Decision.** `UNSORTED_FOLDER_ID` moved from `src/db/index.ts` to `src/domain/models.ts`.
+`src/db` re-exports it, so every existing import still reads `from '@/db'`.
+`UNSORTED_FOLDER_NAME` stayed in `src/db`.
+
+**Why.** Backup validation runs in the domain and has to name the folder it re-homes
+orphaned decks to (ADR-032). The domain imports nothing (CLAUDE.md > Architecture), so
+the alternatives were passing the id in as a parameter of `validateBackup` — ceremony for
+a constant §4.1 fixes — or duplicating the string. The id is a data-model fact; the name
+is a seeding detail, and only `seedDefaults` needs it.
+
+**Consequence.** One more constant lives in `models.ts` alongside `MASTERY_HISTORY_LIMIT`.
+Nothing else changed: `@/db` is still where the rest of the app reads it from.
+
+## ADR-036 — Importing is two steps, and the pending file is a shallow ref
+
+**Decision.** `useBackupStore` validates a chosen file into `pending` and writes nothing
+until the user picks merge or replace. `pending` is a `shallowRef`.
+
+**Why.** §10 requires validation before any write and asks the counts to be reported;
+holding the validated library between the two makes "no write on a bad file" the shape of
+the store rather than a rule to remember, and lets the screen say what the file holds — and
+what had to be repaired — while the user still has the choice. The ref is shallow for the
+reason ADR-015's neighbours already found in the quiz store: these rows go to IndexedDB
+verbatim, and a deep ref hands Dexie reactive proxies, which are not structured-cloneable.
+That failure is a `DataCloneError` at write time, not a type error, so the spec that
+caught it (`merge` returning nothing) is worth keeping.
+
+**Consequence.** The screen has three states to draw — refused, pending, imported — and
+`discard()` is what clears them. Anything else that later writes rows straight from a
+`ref` needs the same care.
+
+## ADR-037 — The version on the settings screen comes from the build
+
+**Decision.** `vite.config.ts` defines `__APP_VERSION__` from `package.json`, declared in
+`src/env.d.ts`; `vitest.config.ts` mirrors the define so a spec renders the real value.
+
+**Why.** §7.8 asks the settings screen to show the app version, and `package.json` is the
+one place it is written down. Importing `../../package.json` from a component would work,
+but it reaches outside `src/` and outside the `@/` alias, and it puts a build manifest in
+the module graph of a screen. A build-time constant keeps the value in one place and
+leaves nothing to drift.
+
+**Consequence.** The two Vite configs have to keep the same define. `vitest.config.ts` is
+already deliberately separate from `vite.config.ts` (no PWA plugin in unit tests), so this
+is the second thing they share knowingly rather than by import.
+
+## ADR-038 — One rule for the theme, enforced against `index.html` itself
+
+**Decision.** The pre-paint script in `index.html` reads an unrecognised value in
+`cardio.theme` as `system`, exactly as `readPreference()` does. `theme.spec.ts` extracts
+that script from the file and runs it, asserting it lands on the same theme as the store.
+
+**Why.** §11 asks the two to agree and the plan's acceptance box asks for no flash of the
+wrong palette, but "keep in sync" was only a comment. They had already drifted: the script
+read anything other than `light|dark|system` as `light`, the store read it as `system`, so
+a device set to dark with a stale or half-written key painted light before first paint and
+flipped to dark on mount — a flash on every reload, indefinitely, since nothing rewrites
+the key. A comment cannot fail; a spec can.
+
+**Consequence.** The script is now covered by a unit test that reads the repository's own
+`index.html` from disk, which is the only file outside `src/` any spec touches. Changing
+either half without the other turns that spec red.
+
+## ADR-039 — A summary dropped mid-read re-reads itself (amends ADR-032)
+
+**Decision.** When `ensure` finishes a read that `invalidate` or `invalidateAll` marked as
+dropped, it reads those decks again itself rather than waiting to be asked.
+
+**Why.** ADR-032 has the in-flight read throw its stale result away, which was right, and
+left the re-read to "the next `ensure`". There is no next one: `ensure` refuses to issue a
+read for a deck already in `reading`, and the screens call it from a watcher over the deck
+ids they are showing — a list a quiz answer or an import does not change. So the watcher
+never re-fires, the summary stays unknown, and the bar sits blank until the user navigates
+away and back. `invalidateAll` widened that from one deck to every deck being read, which
+is every deck on screen during an import.
+
+**Consequence.** `ensure` can now recurse once per invalidation that lands mid-read. It
+terminates because only a further write can refill `dropped`. The three specs that used to
+assert the summary was _absent_ after a mid-read write now assert it is _fresh_, which is
+the outcome those tests were really about.
+
+## ADR-040 — The chosen file belongs to the store, and the screen discards on entry
+
+**Decision.** `useBackupStore` holds the chosen file's name alongside `pending`, clears
+both when the file is loaded or discarded, and reads the `File` itself (`read(file)`) so a
+browser that cannot hand it over is refused with a reason. `SettingsView` calls
+`backup.discard()` in `onMounted`.
+
+**Why.** The store is app-scoped and the screen is not. A file validated on one visit
+survived navigating away: coming back re-created the view with no filename but left
+`pending` armed, so the screen offered Merge and Replace for a file it could not name and
+the user had not chosen this time. Splitting the file across the two — name on the screen,
+contents in the store — also meant a completed import cleared one and not the other. One
+owner fixes both, and moving `file.text()` inside the store puts a `NotReadableError` on
+the same error surface as a malformed file instead of rejecting into a `@change` handler.
+
+**Consequence.** `inspect(text)` stays for callers that already have the text; `read(file)`
+is what the screen uses. Any future screen that touches the backup store must assume it
+may arrive holding the last screen's state.
+
+## ADR-041 — The three modals share one shell
+
+**Decision.** `ModalShell.vue` owns the Bulma modal card, its title and close button, the
+backdrop click and the document-level Escape handler. `ConfirmDialog`, `TypedConfirmDialog`
+and `NameDialog` supply a body, a footer and whether the card is a `form`.
+
+**Why.** `TypedConfirmDialog` arrived as `ConfirmDialog`'s chrome with `NameDialog`'s input
+plumbing pasted into it — around 90 of its 104 lines already existed. Three copies of a
+focus-and-Escape contract is three places for it to drift, and the accessibility details
+are exactly the ones that are easy to get subtly different.
+
+**Consequence.** One more component in the tree, and the dialogs pass their `data-testid`
+down as a prop so every existing test and e2e selector still reaches them unchanged.
+
+## ADR-042 — A confirmation quotes no counts it could not read
+
+**Decision.** `SettingsView` treats the library's size as `LibraryCounts | null`, `null`
+until the first read succeeds and whenever `library.error` is set, and the §7.8 wording in
+`src/domain/prompts.ts` takes that `null` and drops the figures rather than printing zeros.
+The screen also renders `library.error`, which it previously ignored.
+
+**Why.** A failed read leaves the folder and deck lists empty, which is indistinguishable
+from an empty library. The danger zone then read "0 folders, 0 decks and 0 cards stored in
+this browser" and its confirmation promised the user there was nothing to lose immediately
+before `replaceAll` wiped a library that was in fact full. A count nobody has is not zero.
+
+**Consequence.** Two wordings for each destructive prompt, both covered by `prompts.spec.ts`.
+The action stays available when the read fails — the user may well be deleting _because_
+something is broken — it simply stops claiming to know what it is about to destroy.

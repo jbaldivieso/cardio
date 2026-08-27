@@ -3,9 +3,15 @@ import {
   countLabel,
   deleteCardPrompt,
   deleteDeckPrompt,
+  deleteEverythingPrompt,
   deleteFolderPrompt,
+  importPreview,
+  libraryLabel,
   masteryHeadline,
   masteryLabel,
+  repairNotes,
+  replaceEverythingPrompt,
+  storedPrompt,
 } from '@/domain/prompts'
 
 describe('countLabel', () => {
@@ -97,5 +103,88 @@ describe('masteryLabel', () => {
     expect(masteryLabel({ total: 0, new: 0, learning: 0, mastered: 0, masteredPct: 0 })).toBe(
       'No cards yet',
     )
+  })
+})
+
+describe('libraryLabel', () => {
+  it('names all three counts in one phrase', () => {
+    expect(libraryLabel({ folders: 3, decks: 4, cards: 212 })).toBe(
+      '3 folders, 4 decks and 212 cards',
+    )
+  })
+
+  it('uses singulars for a library holding one of each', () => {
+    expect(libraryLabel({ folders: 1, decks: 1, cards: 1 })).toBe('1 folder, 1 deck and 1 card')
+  })
+})
+
+describe('storedPrompt', () => {
+  it('says what the danger zone is about to act on', () => {
+    expect(storedPrompt({ folders: 3, decks: 4, cards: 212 })).toBe(
+      '3 folders, 4 decks and 212 cards stored in this browser. There is no undo and no trash.',
+    )
+  })
+
+  it('quotes no counts when the library could not be read', () => {
+    expect(storedPrompt(null)).toBe(
+      'Everything you have is stored in this browser. There is no undo and no trash.',
+    )
+  })
+})
+
+describe('deleteEverythingPrompt', () => {
+  it('names what goes and what comes back', () => {
+    expect(deleteEverythingPrompt({ folders: 3, decks: 4, cards: 212 })).toBe(
+      'This deletes every folder, deck and card you have — 3 folders, 4 decks and 212 cards. ' +
+        'Unsorted comes back empty; nothing else comes back at all.',
+    )
+  })
+
+  it('claims nothing about the size of a library it could not read', () => {
+    expect(deleteEverythingPrompt(null)).toBe(
+      'This deletes every folder, deck and card you have. ' +
+        'Unsorted comes back empty; nothing else comes back at all.',
+    )
+  })
+})
+
+describe('replaceEverythingPrompt', () => {
+  it('names what the backup is about to replace', () => {
+    expect(replaceEverythingPrompt({ folders: 3, decks: 4, cards: 212 })).toBe(
+      'This clears 3 folders, 4 decks and 212 cards and loads the backup in their place. ' +
+        'There is no undo.',
+    )
+  })
+
+  it('claims nothing about the size of a library it could not read', () => {
+    expect(replaceEverythingPrompt(null)).toBe(
+      'This clears everything in this browser and loads the backup in its place. There is no undo.',
+    )
+  })
+})
+
+describe('importPreview', () => {
+  it('says what a chosen file holds before any of it is written', () => {
+    expect(importPreview({ folders: 1, decks: 2, cards: 30 })).toBe(
+      'That backup holds 1 folder, 2 decks and 30 cards.',
+    )
+  })
+})
+
+describe('repairNotes', () => {
+  it('says nothing about a file that needs no repair', () => {
+    expect(repairNotes({ rehomedDecks: 0, rejectedCards: 0 })).toEqual([])
+  })
+
+  it('warns where a deck with no folder will land', () => {
+    expect(repairNotes({ rehomedDecks: 2, rejectedCards: 0 })).toEqual([
+      '2 decks with no folder will go to Unsorted.',
+    ])
+  })
+
+  it('warns that a card with no deck will be left out', () => {
+    expect(repairNotes({ rehomedDecks: 0, rejectedCards: 1 })).toEqual([
+      '1 card with no deck will be left out.',
+    ])
   })
 })
