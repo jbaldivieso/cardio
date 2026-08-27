@@ -9,5 +9,5 @@ test('app shell loads and routes', async ({ page }) => {
 
   await page.getByTestId('nav-settings').click()
   await expect(page).toHaveURL(/#\/settings$/)
-  await expect(page.getByTestId('placeholder')).toContainText('Settings')
+  await expect(page.getByTestId('app-version')).toContainText('Cardio')
 })
