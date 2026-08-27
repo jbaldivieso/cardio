@@ -50,12 +50,23 @@ async function unknownRows<T extends { id: string }>(
 export function createLibraryRepo(database: CardioDb = db): LibraryRepo {
   return {
     async snapshot(): Promise<LibrarySnapshot> {
-      const [folders, decks, cards] = await Promise.all([
-        database.folders.toArray(),
-        database.decks.toArray(),
-        database.cards.toArray(),
-      ])
-      return { folders, decks, cards }
+      // One read transaction, not three: a backup assembled from three separate
+      // reads can catch another tab's write half done and carry a card whose
+      // deck is already gone. Importing that file would drop the card silently.
+      return database.transaction(
+        'r',
+        database.folders,
+        database.decks,
+        database.cards,
+        async () => {
+          const [folders, decks, cards] = await Promise.all([
+            database.folders.toArray(),
+            database.decks.toArray(),
+            database.cards.toArray(),
+          ])
+          return { folders, decks, cards }
+        },
+      )
     },
 
     async mergeAll(data: LibrarySnapshot): Promise<MergeReport> {

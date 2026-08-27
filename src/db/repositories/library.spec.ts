@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CardioDb, UNSORTED_FOLDER_ID, UNSORTED_FOLDER_NAME } from '@/db'
 import { createLibraryRepo, type LibrarySnapshot } from '@/db/repositories/library'
 import type { Card } from '@/domain/models'
@@ -64,6 +64,17 @@ describe('library repository', () => {
 
       expect(taken.cards[0].stats.gets).toBe(3)
       expect(taken.cards[0].stats.misses).toBe(1)
+    })
+
+    it('takes all three tables in one read transaction (§10)', async () => {
+      const opened = vi.spyOn(db, 'transaction')
+
+      await library.snapshot()
+
+      // Three separate reads can catch another tab's write half done and put a
+      // card whose deck is already gone into the backup; re-importing that file
+      // drops the card and calls it a repair.
+      expect(opened).toHaveBeenCalledWith('r', db.folders, db.decks, db.cards, expect.any(Function))
     })
 
     it('reads an emptied library as three empty lists', async () => {

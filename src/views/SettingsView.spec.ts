@@ -127,7 +127,7 @@ describe('SettingsView', () => {
       const wrapper = await mountView()
 
       await wrapper.get('[data-testid="export-backup"]').trigger('click')
-      await flushPromises()
+      await vi.waitUntil(() => clicked.mock.instances.length > 0)
 
       const anchor = clicked.mock.instances[0] as HTMLAnchorElement
       expect(anchor.download).toBe('cardio-backup-2026-08-26.json')
