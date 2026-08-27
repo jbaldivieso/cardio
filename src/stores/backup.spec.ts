@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { seedDefaults, UNSORTED_FOLDER_ID } from '@/db'
 import { serialise } from '@/domain/backup'
@@ -17,6 +17,12 @@ describe('backup store', () => {
     await seedDefaults(test.db, 1000)
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:cardio')
     vi.spyOn(URL, 'revokeObjectURL').mockReturnValue(undefined)
+  })
+
+  // Here rather than at the end of the tests that set the clock: a failing
+  // assertion would skip that line and leave every later test in 2026.
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   /** A folder holding one deck of one card, and the ids of all three. */
@@ -69,7 +75,6 @@ describe('backup store', () => {
       const file = await store.exportBackup()
 
       expect(file?.filename).toBe('cardio-backup-2026-08-26.json')
-      vi.useRealTimers()
     })
 
     it('includes the statistics a quiz has recorded (§10)', async () => {
@@ -91,6 +96,40 @@ describe('backup store', () => {
       expect(clicked).toHaveBeenCalledTimes(1)
       const anchor = clicked.mock.instances[0] as HTMLAnchorElement
       expect(anchor.download).toBe(file?.filename)
+    })
+
+    it('holds the object URL open long enough for the browser to fetch it', async () => {
+      // The database is stubbed out because this test runs the clock: Dexie
+      // needs the real one to settle a transaction.
+      vi.spyOn(repositories.library, 'snapshot').mockResolvedValue({
+        folders: [],
+        decks: [],
+        cards: [],
+      })
+      vi.spyOn(HTMLAnchorElement.prototype, 'click').mockReturnValue(undefined)
+      vi.useFakeTimers()
+      const store = useBackupStore()
+
+      await store.exportBackup()
+
+      // Firefox and older WebKit start fetching a blob: href after the click
+      // returns; revoking it on the next tick cancels the download silently.
+      vi.advanceTimersByTime(0)
+      expect(URL.revokeObjectURL).not.toHaveBeenCalled()
+      vi.runAllTimers()
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:cardio')
+    })
+
+    it('surfaces a browser that refuses to hand over the file', async () => {
+      vi.spyOn(URL, 'createObjectURL').mockImplementation(() => {
+        throw new Error('Blob URLs are blocked.')
+      })
+      const store = useBackupStore()
+
+      const file = await store.exportBackup()
+
+      expect(file).toBeUndefined()
+      expect(store.error).toBe('Blob URLs are blocked.')
     })
 
     it('leaves no anchor behind in the document', async () => {
@@ -156,6 +195,61 @@ describe('backup store', () => {
 
       expect(store.errors).toEqual([])
       expect(store.pending).not.toBeNull()
+    })
+  })
+
+  describe('reading a chosen file', () => {
+    /** A file the browser hands over, as the picker would. */
+    function chosen(contents: string, name = 'cardio-backup.json'): File {
+      return new File([contents], name, { type: 'application/json' })
+    }
+
+    it('validates the file the browser hands over', async () => {
+      const store = useBackupStore()
+
+      await store.read(chosen(otherLibrary()))
+
+      expect(store.pending?.counts).toEqual({ folders: 1, decks: 1, cards: 1 })
+    })
+
+    it('remembers the name of the file that was chosen', async () => {
+      const store = useBackupStore()
+
+      await store.read(chosen(otherLibrary(), 'holiday-backup.json'))
+
+      expect(store.filename).toBe('holiday-backup.json')
+    })
+
+    it('refuses a file the browser cannot read, with a reason', async () => {
+      const store = useBackupStore()
+      const unreadable = {
+        name: 'gone.json',
+        text: () => Promise.reject(new Error('NotReadableError')),
+      } as unknown as File
+
+      const ok = await store.read(unreadable)
+
+      expect(ok).toBe(false)
+      expect(store.pending).toBeNull()
+      expect(store.errors).toEqual(['“gone.json” could not be read. Try choosing it again.'])
+    })
+
+    it('forgets the file once it has been imported', async () => {
+      const store = useBackupStore()
+      await store.read(chosen(otherLibrary()))
+
+      await store.merge()
+
+      expect(store.filename).toBeNull()
+    })
+
+    it('forgets the file when the import is cancelled', async () => {
+      const store = useBackupStore()
+      await store.read(chosen(otherLibrary()))
+
+      store.discard()
+
+      expect(store.filename).toBeNull()
     })
   })
 

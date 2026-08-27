@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, shallowRef } from 'vue'
-import { backupFilename, serialise, validateBackup } from '@/domain/backup'
-import type { BackupRepairs, LibraryData } from '@/domain/backup'
+import { backupFilename, countsOf, serialise, validateBackup } from '@/domain/backup'
+import type { BackupRepairs, LibraryCounts, LibraryData } from '@/domain/backup'
 import { useErrorSurface } from '@/stores/errors'
 import { useLibraryStore } from '@/stores/library'
 import { useMasteryStore } from '@/stores/mastery'
@@ -9,13 +9,6 @@ import { repositories } from '@/stores/repositories'
 
 /** The two ways §10 allows a backup to be loaded. */
 export type ImportMode = 'merge' | 'replace'
-
-/** How many rows of each kind a file holds, for the confirmation before a write. */
-export interface LibraryCounts {
-  folders: number
-  decks: number
-  cards: number
-}
 
 /** A validated file, waiting for the user to say how to load it. */
 export interface PendingImport {
@@ -38,14 +31,17 @@ export interface BackupDownload {
   json: string
 }
 
-function countsOf(data: LibraryData): LibraryCounts {
-  return { folders: data.folders.length, decks: data.decks.length, cards: data.cards.length }
-}
+/**
+ * How long the object URL is left alive after the click. Firefox and older
+ * WebKit begin fetching a `blob:` href only after the synthetic click returns,
+ * and revoking it first cancels the download with no error anywhere — the worst
+ * failure this feature has, since the export may be the only copy of a library.
+ */
+const REVOKE_AFTER_MS = 60_000
 
 /**
  * Hands a file to the browser. A Blob URL and a synthetic click is the only way
- * a page with no server can offer a download (§10); the object URL is released
- * on the next tick, once the browser has taken the data.
+ * a page with no server can offer a download (§10).
  */
 function offerDownload(file: BackupDownload): void {
   const url = URL.createObjectURL(new Blob([file.json], { type: 'application/json' }))
@@ -56,7 +52,7 @@ function offerDownload(file: BackupDownload): void {
   document.body.append(anchor)
   anchor.click()
   anchor.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 0)
+  setTimeout(() => URL.revokeObjectURL(url), REVOKE_AFTER_MS)
 }
 
 /**
@@ -79,6 +75,12 @@ export const useBackupStore = defineStore('backup', () => {
   const errors = ref<string[]>([])
   /** What the last import did, for the screen to report. */
   const report = ref<ImportReport | null>(null)
+  /**
+   * The chosen file's name. Kept here rather than on the screen: the file input
+   * is re-armed after every read so it cannot report its own, and only the store
+   * knows when the file has been loaded and the name should go.
+   */
+  const filename = ref<string | null>(null)
   const busy = ref(false)
   const { error, attempt } = useErrorSurface()
 
@@ -87,18 +89,23 @@ export const useBackupStore = defineStore('backup', () => {
     pending.value = null
     errors.value = []
     report.value = null
+    filename.value = null
     error.value = null
   }
 
   async function exportBackup(): Promise<BackupDownload | undefined> {
     busy.value = true
+    // The download happens inside `attempt`, not after it: a browser that
+    // refuses to make a Blob URL would otherwise reject into the click handler
+    // with nothing on screen, and the user would think the export had worked.
     const file = await attempt(async () => {
       const now = Date.now()
       const data = await repositories.library.snapshot()
-      return { filename: backupFilename(now), json: serialise(data, now) }
+      const download = { filename: backupFilename(now), json: serialise(data, now) }
+      offerDownload(download)
+      return download
     })
     busy.value = false
-    if (file) offerDownload(file)
     return file
   }
 
@@ -115,6 +122,27 @@ export const useBackupStore = defineStore('backup', () => {
     }
     pending.value = { data: result.data, counts: countsOf(result.data), repairs: result.repairs }
     return true
+  }
+
+  /**
+   * Reads a chosen file and validates it (§10). A file the browser cannot hand
+   * over — moved or deleted since the picker closed, or on a cloud provider
+   * that has gone away — is refused with a reason, exactly as a malformed one
+   * is, rather than leaving the screen looking as though nothing was clicked.
+   */
+  async function read(file: File): Promise<boolean> {
+    let text: string
+    try {
+      text = await file.text()
+    } catch {
+      discard()
+      errors.value = [`“${file.name}” could not be read. Try choosing it again.`]
+      filename.value = file.name
+      return false
+    }
+    const ok = inspect(text)
+    filename.value = file.name
+    return ok
   }
 
   /** Runs one of the two loads over the pending file and reports what it did. */
@@ -135,6 +163,7 @@ export const useBackupStore = defineStore('backup', () => {
     useMasteryStore().invalidateAll()
     await useLibraryStore().load()
     pending.value = null
+    filename.value = null
     report.value = { mode, repairs: file.repairs, ...counts }
     return report.value
   }
@@ -172,10 +201,12 @@ export const useBackupStore = defineStore('backup', () => {
     pending,
     errors,
     report,
+    filename,
     busy,
     error,
     exportBackup,
     inspect,
+    read,
     discard,
     merge,
     replace,
