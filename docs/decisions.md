@@ -710,3 +710,29 @@ groove in both themes where before it was invisible in light.
 The component test asserts the class, which pins the token but not the contrast. Anything
 that changes this colour has to be looked at, in both themes, with an empty deck on
 screen.
+
+## ADR-045 — The install hint appears only where the browser can act on it
+
+**Decision.** Spec §7.8 asks for "install instructions when not installed". They are
+shown where the browser has actually offered to install the app — Chrome and its kin,
+once `beforeinstallprompt` has fired — or where installing is possible without such an
+event, which is Safari on iOS. Everywhere else the section is absent, not empty.
+
+**Why.** The instructions name a specific menu item. A desktop Firefox has no install
+command at all, and Chrome fires no event when the criteria are unmet or the app is
+already installed. Instructions no menu can carry out read as a bug in the browser or in
+the user; a browser that cannot install the app is better off saying nothing about it.
+The event is the only reliable signal, since a user agent string does not say whether
+this build is installable here.
+
+**Consequence.** The signal arrives once, moments after load, long before anyone opens
+Settings, so `useInstallStore` is created at boot in `main.ts` rather than by the screen
+that reads it. The event is listened for and never deferred: calling `preventDefault()`
+on it suppresses the browser's own install affordance, which is the very thing the hint
+points at. `appinstalled` clears the hint, so a tab that installs the app while it is
+open stops advertising it.
+
+The iOS branch is user-agent sniffed, in `isIosBrowser`, because Safari offers no
+alternative. iPadOS 13 and later report the desktop Mac string, so the touch-point count
+is what separates an iPad from a Mac; a Mac that grows a touch screen would see the wrong
+hint, and this is the whole cost of the approach.
