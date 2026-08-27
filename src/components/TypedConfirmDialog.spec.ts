@@ -1,11 +1,20 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
 import TypedConfirmDialog from '@/components/TypedConfirmDialog.vue'
 
 describe('TypedConfirmDialog', () => {
+  const mounted: VueWrapper[] = []
+
+  // Every dialog listens on `document` for Escape; one left mounted would keep
+  // answering the keydowns of the tests that come after it.
+  afterEach(() => {
+    for (const wrapper of mounted) wrapper.unmount()
+    mounted.length = 0
+  })
+
   function mountDialog(): VueWrapper {
-    return mount(TypedConfirmDialog, {
+    const wrapper = mount(TypedConfirmDialog, {
       props: {
         title: 'Delete all data',
         message: 'This removes 3 folders, 4 decks and 212 cards.',
@@ -14,6 +23,8 @@ describe('TypedConfirmDialog', () => {
       },
       attachTo: document.body,
     })
+    mounted.push(wrapper)
+    return wrapper
   }
 
   async function type(wrapper: VueWrapper, text: string): Promise<void> {
