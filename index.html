@@ -10,9 +10,14 @@
     <title>Cardio</title>
     <script>
       // Apply the stored theme before first paint to avoid a flash of the wrong
-      // palette. Keep in sync with src/stores/theme.ts.
+      // palette. Keep in sync with src/stores/theme.ts, which reads the same key
+      // by the same rules; theme.spec.ts runs this script and holds them to it.
       try {
-        var pref = localStorage.getItem('cardio.theme') || 'system'
+        var stored = localStorage.getItem('cardio.theme')
+        // Anything else in that key — a value from a future version, a
+        // half-written string — is a missing preference, exactly as the store
+        // treats it. Reading it as 'light' would repaint on every reload.
+        var pref = stored === 'light' || stored === 'dark' ? stored : 'system'
         var dark =
           pref === 'dark' ||
           (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)

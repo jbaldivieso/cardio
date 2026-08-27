@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
@@ -26,6 +28,70 @@ function stubMatchMedia(dark: boolean): (next: boolean) => void {
 function theme(): string | undefined {
   return document.documentElement.dataset.theme
 }
+
+/**
+ * Runs `index.html`'s pre-paint script the way the browser runs it, from the
+ * file itself. §11 asks it and the store to reach the same theme for the same
+ * stored value: where they disagree, the app repaints on every reload and the
+ * user sees a flash of the palette they did not ask for.
+ */
+function runPrePaintScript(): void {
+  const html = readFileSync(resolve(process.cwd(), 'index.html'), 'utf8')
+  const script = /<script>([\s\S]*?)<\/script>/.exec(html)?.[1]
+  if (script === undefined) throw new Error('index.html has no pre-paint script.')
+  new Function('window', script)(globalThis)
+}
+
+describe('the pre-paint script in index.html (§11)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    localStorage.clear()
+    delete document.documentElement.dataset.theme
+    stubMatchMedia(false)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('paints the theme the last visit chose', () => {
+    localStorage.setItem(THEME_KEY, 'dark')
+
+    runPrePaintScript()
+
+    expect(theme()).toBe('dark')
+  })
+
+  it('follows the system when nothing has been chosen', () => {
+    stubMatchMedia(true)
+
+    runPrePaintScript()
+
+    expect(theme()).toBe('dark')
+  })
+
+  it('falls back to following the system, as the store does, on a value that is not a theme', async () => {
+    stubMatchMedia(true)
+    localStorage.setItem(THEME_KEY, 'aubergine')
+
+    runPrePaintScript()
+    const painted = theme()
+    useThemeStore()
+    await nextTick()
+
+    expect(painted).toBe(theme())
+  })
+
+  it('paints light when the browser will not say what the system prefers', () => {
+    vi.stubGlobal('matchMedia', () => {
+      throw new Error('blocked')
+    })
+
+    runPrePaintScript()
+
+    expect(theme()).toBe('light')
+  })
+})
 
 describe('theme store', () => {
   beforeEach(() => {
