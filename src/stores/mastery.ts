@@ -77,6 +77,7 @@ export const useMasteryStore = defineStore('mastery', () => {
 
     missing.forEach((id) => reading.add(id))
     tick()
+    const stale: string[] = []
     try {
       await attempt(async () => {
         const cards = await repositories.cards.listByDecks(missing)
@@ -86,7 +87,7 @@ export const useMasteryStore = defineStore('mastery', () => {
         for (const card of cards) byDeck.get(card.deckId)?.push(card)
         const next = { ...summaries.value }
         // A deck written to since this read began was read as it used to be, so
-        // its summary is left unknown and the next `ensure` reads it again.
+        // its summary is thrown away and read again below.
         for (const [id, deckCards] of byDeck) {
           if (dropped.has(id)) continue
           next[id] = summarise(deckCards, now.value)
@@ -96,10 +97,17 @@ export const useMasteryStore = defineStore('mastery', () => {
     } finally {
       // Cleared either way: a read that failed has to be allowed to happen again.
       missing.forEach((id) => {
+        if (dropped.has(id)) stale.push(id)
         reading.delete(id)
         dropped.delete(id)
       })
     }
+
+    // Read again here rather than waiting to be asked: the screen that called
+    // `ensure` is watching a list of decks the write did not change, so nothing
+    // else is coming, and the bar would sit blank until the user navigated away
+    // and back. Terminates because only a further write can refill `dropped`.
+    if (stale.length > 0) await ensure(stale)
   }
 
   /**
