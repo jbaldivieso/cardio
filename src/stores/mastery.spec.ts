@@ -278,6 +278,68 @@ describe('mastery store', () => {
     expect(mastery.deckSummary(deckId)?.total).toBe(1)
   })
 
+  /**
+   * A read that resolves with the deck as it was before a write, but lands
+   * after it — the window in which `invalidate` has no summary to drop.
+   */
+  async function readHeldOpen(deckIds: string[]): Promise<() => void> {
+    const before = await repositories.cards.listByDecks(deckIds)
+    let release = (): void => {}
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    vi.spyOn(repositories.cards, 'listByDecks').mockImplementationOnce(async () => {
+      await held
+      return before
+    })
+    return release
+  }
+
+  it('throws away a summary read before a write that landed mid-read', async () => {
+    const deckId = await seedDeck('Verbs', 1)
+    const mastery = useMasteryStore()
+    const release = await readHeldOpen([deckId])
+
+    const reading = mastery.ensure([deckId])
+    await answerFiveTimes(deckId, Date.now())
+    mastery.invalidate(deckId)
+    release()
+    await reading
+
+    expect(mastery.deckSummary(deckId)).toBeUndefined()
+  })
+
+  it('re-reads a deck whose mid-read summary it threw away', async () => {
+    const deckId = await seedDeck('Verbs', 1)
+    const mastery = useMasteryStore()
+    const release = await readHeldOpen([deckId])
+
+    const reading = mastery.ensure([deckId])
+    await answerFiveTimes(deckId, Date.now())
+    mastery.invalidate(deckId)
+    release()
+    await reading
+    await mastery.ensure([deckId])
+
+    expect(mastery.deckSummary(deckId)?.mastered).toBe(1)
+  })
+
+  it('keeps a summary read alongside one a write dropped mid-read', async () => {
+    const verbs = await seedDeck('Verbs', 1)
+    const nouns = await seedDeck('Nouns', 1)
+    const mastery = useMasteryStore()
+    const release = await readHeldOpen([verbs, nouns])
+
+    const reading = mastery.ensure([verbs, nouns])
+    await answerFiveTimes(verbs, Date.now())
+    mastery.invalidate(verbs)
+    release()
+    await reading
+
+    expect(mastery.deckSummary(verbs)).toBeUndefined()
+    expect(mastery.deckSummary(nouns)?.total).toBe(1)
+  })
+
   it('moves the clock to now when it re-reads', async () => {
     const deckId = await seedDeck('Verbs', 1)
     const mastery = useMasteryStore()
