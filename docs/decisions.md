@@ -458,3 +458,46 @@ guess what is wrong with the deck.
 **Consequence.** Every gated action needs its own guard in the handler, because the
 browser no longer enforces one for us. The `is-sr-only` sentence carries the reason in
 both states, so the description is useful once the deck has cards too.
+
+## ADR-032 — Mastery summaries live in their own store, invalidated by the writer
+
+**Decision.** `src/stores/mastery.ts` holds one `MasterySummary` per deck id, reads a deck
+once, and keeps that summary until someone calls `invalidate(deckId)`. The store that
+performs a write makes that call: `src/stores/cards.ts` after every card write, and
+`src/stores/quiz.ts` after each answer it records and each one an undo takes back. Folder
+roll-ups are a computed over the library store's decks, so `mastery` imports `library`.
+
+**Why.** Banding a deck means reading all of its cards, which is far too much to do while
+a row renders (§13), so §5.5 asks for a memo per deck. A memo that outlives a mount cannot
+be kept honest by the "every screen calls `load()` on mount" rule that ADR-024 relies on:
+navigate to a deck, add a card, come back, and the bar would still show the old numbers.
+Something has to say when a summary died, and only the writer knows.
+
+This is not the sideways write ADR-024 rules out. That one had the cards store _author_ a
+number the library store also authors, giving one figure two sources that could drift.
+`invalidate` authors nothing: it drops a cache entry, and the next read recomputes from
+the database, which stays the single source. The `now` the store stamps at each read is
+the same clock the badges are scored against, so a screenful of mastery is one instant.
+
+**Consequence.** A deck whose summary is not read yet has no bar rather than a wrong one,
+and a folder waits for all of its decks before it shows anything — late beats wrong. Any
+future writer of `CardStats` has one obligation: invalidate the deck it wrote to. The
+cache is keyed by deck id and never pruned; ids are UUIDs, decks are few, and only decks
+the library still lists are ever looked up.
+
+## ADR-033 — The bar's segments are whole percentages, by largest remainder
+
+**Decision.** `segmentWidths()` in `src/domain/aggregates.ts` returns three integer
+percentages that add up to exactly 100: floor each share, then give the leftover percent
+to the bands that lost the most to the flooring, ties going to the band nearer the left.
+
+**Why.** Rounding three shares independently produces 99 or 101 — a bar visibly short of
+its track, or one segment clipped off the end. Letting the last segment absorb the
+remainder with `flex-grow` would hide the arithmetic but make the widths untestable, and
+the bar is small enough that a fractional percent buys nothing. Whole numbers keep the
+rendered `style` assertable against the spec's own example (5 / 3 / 2 → 50 / 30 / 20).
+
+**Consequence.** The arithmetic sits in the domain with a test, not in the SFC. The
+component maps the three numbers onto Bulma's `has-background-success`,
+`has-background-warning`, and plain `has-background` — the theme's neutral, which is also
+the empty track, so the untried share reads as bar that has not been filled in yet.

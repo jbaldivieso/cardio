@@ -6,6 +6,7 @@ import type { VueWrapper } from '@vue/test-utils'
 import { routes } from '@/router'
 import { seedDefaults, UNSORTED_FOLDER_ID } from '@/db'
 import { useLibraryStore } from '@/stores/library'
+import { useMasteryStore } from '@/stores/mastery'
 import { useQuizStore } from '@/stores/quiz'
 import { repositories } from '@/stores/repositories'
 import { useTestDatabase } from '@/test/repositories'
@@ -76,6 +77,50 @@ describe('FolderView', () => {
       name: 'deck',
       params: { deckId: deck.id },
     })
+  })
+
+  it('shows how much of each deck is mastered', async () => {
+    const folder = await repositories.folders.create('Spanish', 1000)
+    const deck = await repositories.decks.create(folder.id, 'Verbs', 1000)
+    const card = await repositories.cards.create(deck.id, { front: 'ser', back: 'to be' }, 1000)
+    await repositories.cards.create(deck.id, { front: 'ir', back: 'to go' }, 1000)
+    // Five clean gets today: spec §5.4's mastery 100, so one of the two cards.
+    for (let i = 0; i < 5; i += 1) {
+      await repositories.cards.recordAttempt(card.id, true, Date.now())
+    }
+
+    const wrapper = await mountView(folder.id)
+    // The bar arrives one read after the row it sits in.
+    await vi.waitUntil(() => rows(wrapper)[0].text().includes('mastered'))
+
+    expect(rows(wrapper)[0].get('[data-testid="mastery-headline"]').text()).toBe('50% mastered')
+  })
+
+  it('reads a deck again when a write drops its summary, without remounting', async () => {
+    const folder = await repositories.folders.create('Spanish', 1000)
+    const deck = await repositories.decks.create(folder.id, 'Verbs', 1000)
+    const card = await repositories.cards.create(deck.id, { front: 'ser', back: 'to be' }, 1000)
+    const wrapper = await mountView(folder.id)
+    await vi.waitUntil(() => rows(wrapper)[0].text().includes('0% mastered'))
+
+    // What the quiz store does with every answer it records (ADR-032).
+    for (let i = 0; i < 5; i += 1) {
+      await repositories.cards.recordAttempt(card.id, true, Date.now())
+    }
+    useMasteryStore().invalidate(deck.id)
+    await vi.waitUntil(() => rows(wrapper)[0].text().includes('100% mastered'))
+
+    expect(rows(wrapper)[0].get('[data-testid="mastery-headline"]').text()).toBe('100% mastered')
+  })
+
+  it('says a deck holding no cards has none, rather than 0%', async () => {
+    const folder = await repositories.folders.create('Spanish', 1000)
+    await repositories.decks.create(folder.id, 'Verbs', 1000)
+
+    const wrapper = await mountView(folder.id)
+    await vi.waitUntil(() => rows(wrapper)[0].text().includes('No cards yet'))
+
+    expect(rows(wrapper)[0].get('[data-testid="mastery-bar"]').text()).toBe('No cards yet')
   })
 
   it('says so, rather than crashing, when the folder does not exist', async () => {

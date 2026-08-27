@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import MarkdownText from '@/components/MarkdownText.vue'
+import MasteryBadge from '@/components/MasteryBadge.vue'
 import type { Card } from '@/domain/models'
 
-/** One row of the deck screen (§7.3). The mastery badge arrives with item 09. */
-defineProps<{ card: Card }>()
+/** One row of the deck screen (§7.3). `now` is the clock the store owns. */
+defineProps<{ card: Card; now: number }>()
 
 const emit = defineEmits<{ open: []; delete: [] }>()
 
@@ -33,7 +34,8 @@ function onRowClick(event: MouseEvent): void {
       class="cardio-row-main cardio-clamp-2 is-flex-grow-1"
       data-testid="card-row-front"
     />
-    <div class="is-flex is-flex-shrink-0 is-gap-1">
+    <div class="is-flex is-flex-shrink-0 is-align-items-center is-gap-1">
+      <MasteryBadge :stats="card.stats" :now="now" />
       <button
         type="button"
         class="button is-ghost cardio-action"

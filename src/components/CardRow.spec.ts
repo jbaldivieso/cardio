@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
 import CardRow from '@/components/CardRow.vue'
 import { emptyStats } from '@/domain/models'
-import type { Card } from '@/domain/models'
+import type { Card, CardStats } from '@/domain/models'
 
 describe('CardRow', () => {
-  function card(front: string): Card {
+  const NOW = Date.parse('2026-06-01T12:00:00.000Z')
+
+  function card(front: string, stats: CardStats): Card {
     return {
       id: 'c1',
       deckId: 'd1',
@@ -13,12 +15,15 @@ describe('CardRow', () => {
       back: 'to be',
       createdAt: 1,
       updatedAt: 1,
-      stats: emptyStats(),
+      stats,
     }
   }
 
-  function mountRow(front = '**ser**') {
-    return mount(CardRow, { props: { card: card(front) }, attachTo: document.body })
+  function mountRow(front = '**ser**', stats: CardStats = emptyStats()) {
+    return mount(CardRow, {
+      props: { card: card(front, stats), now: NOW },
+      attachTo: document.body,
+    })
   }
 
   it('shows the front rendered as markdown', () => {
@@ -50,6 +55,20 @@ describe('CardRow', () => {
 
     expect(wrapper.emitted('delete')).toHaveLength(1)
     expect(wrapper.emitted('open')).toBeUndefined()
+  })
+
+  it('badges the card with its mastery', () => {
+    // Five clean gets today: spec §5.4's mastery 100.
+    const stats = {
+      gets: 5,
+      misses: 0,
+      history: [...Array(5)].map(() => ({ at: NOW, got: true })),
+      lastSeenAt: NOW,
+    }
+
+    const wrapper = mountRow('ser', stats)
+
+    expect(wrapper.get('[data-testid="mastery-badge"]').text()).toBe('100%')
   })
 
   it('advertises the row as tappable', () => {

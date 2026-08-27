@@ -65,6 +65,32 @@ describe('FoldersView', () => {
     })
   })
 
+  it('shows how much of each folder is mastered', async () => {
+    await seedDefaults(test.db, 1000)
+    const folder = await repositories.folders.create('Spanish', 1000)
+    const deck = await repositories.decks.create(folder.id, 'Verbs', 1000)
+    const card = await repositories.cards.create(deck.id, { front: 'ser', back: 'to be' }, 1000)
+    await repositories.cards.create(deck.id, { front: 'ir', back: 'to go' }, 1000)
+    // Five clean gets today: spec §5.4's mastery 100, so one of the two cards.
+    for (let i = 0; i < 5; i += 1) {
+      await repositories.cards.recordAttempt(card.id, true, Date.now())
+    }
+
+    const wrapper = await mountView()
+    // The bar arrives one read after the row it sits in.
+    await vi.waitUntil(() => rows(wrapper)[0].text().includes('mastered'))
+
+    expect(rows(wrapper)[0].get('[data-testid="mastery-headline"]').text()).toBe('50% mastered')
+  })
+
+  it('says a folder holding no cards has none, rather than 0%', async () => {
+    await seedDefaults(test.db, 1000)
+
+    const wrapper = await mountView()
+
+    expect(rows(wrapper)[0].get('[data-testid="mastery-bar"]').text()).toBe('No cards yet')
+  })
+
   it('invites a first folder when there are none', async () => {
     const wrapper = await mountView()
 

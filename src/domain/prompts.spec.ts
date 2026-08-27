@@ -4,6 +4,8 @@ import {
   deleteCardPrompt,
   deleteDeckPrompt,
   deleteFolderPrompt,
+  masteryHeadline,
+  masteryLabel,
 } from '@/domain/prompts'
 
 describe('countLabel', () => {
@@ -61,5 +63,39 @@ describe('deleteDeckPrompt', () => {
 describe('deleteCardPrompt', () => {
   it('warns that a card deletion cannot be undone', () => {
     expect(deleteCardPrompt()).toBe('Delete this card? This cannot be undone.')
+  })
+})
+
+describe('masteryHeadline', () => {
+  it('leads with the mastered percentage', () => {
+    expect(
+      masteryHeadline({ total: 50, new: 4, learning: 12, mastered: 34, masteredPct: 68 }),
+    ).toBe('68% mastered')
+  })
+
+  it('reads 0% for a deck nobody has quizzed yet', () => {
+    expect(masteryHeadline({ total: 3, new: 3, learning: 0, mastered: 0, masteredPct: 0 })).toBe(
+      '0% mastered',
+    )
+  })
+
+  it('says there are no cards rather than a percentage of nothing', () => {
+    expect(masteryHeadline({ total: 0, new: 0, learning: 0, mastered: 0, masteredPct: 0 })).toBe(
+      'No cards yet',
+    )
+  })
+})
+
+describe('masteryLabel', () => {
+  it('reads the bar out in the wording of spec §7.9', () => {
+    expect(masteryLabel({ total: 50, new: 4, learning: 12, mastered: 34, masteredPct: 68 })).toBe(
+      '68% mastered, 12 learning, 4 new',
+    )
+  })
+
+  it('says there are no cards rather than reading out three zeros', () => {
+    expect(masteryLabel({ total: 0, new: 0, learning: 0, mastered: 0, masteredPct: 0 })).toBe(
+      'No cards yet',
+    )
   })
 })
