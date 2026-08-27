@@ -220,7 +220,12 @@ async function onConfirmed(): Promise<void> {
       <p class="is-size-7" data-testid="install-hint">
         Cardio runs offline once installed.
         <template v-if="install.hint === 'ios'">Tap Share, then Add to Home Screen.</template>
-        <template v-else>Open this browser's menu and choose Install app.</template>
+        <template v-else-if="install.hint === 'macos-safari'">
+          Open the File menu and choose Add to Dock.
+        </template>
+        <template v-else-if="install.hint === 'browser'">
+          This browser offers to install it, from its menu or from the address bar.
+        </template>
       </p>
     </section>
 

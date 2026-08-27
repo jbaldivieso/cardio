@@ -27,6 +27,8 @@ describe('SettingsView', () => {
   const FIREFOX = 'Mozilla/5.0 (X11; Linux x86_64; rv:127.0) Gecko/20100101 Firefox/127.0'
   const IPHONE =
     'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1'
+  const MAC_SAFARI =
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15'
 
   /**
    * The browser's answer about durability, which §7.8 asks the screen to show,
@@ -315,13 +317,15 @@ describe('SettingsView', () => {
   describe('the app itself', () => {
     // The real sequence: the event fires moments after boot, and the screen is
     // opened long afterwards. Only a store built at boot is still listening.
-    it('points at the browser menu once the browser offers to install it', async () => {
+    // The wording names no menu item: it differs between Chrome, Edge and
+    // Samsung Internet, all of which fire the event (ADR-045).
+    it('points at the browser once the browser offers to install it', async () => {
       useInstallStore()
       globalThis.dispatchEvent(new Event('beforeinstallprompt'))
 
       const wrapper = await mountView()
 
-      expect(wrapper.get('[data-testid="install-hint"]').text()).toContain('Install app')
+      expect(wrapper.get('[data-testid="install-hint"]').text()).toContain('address bar')
     })
 
     it('points an iPhone at Add to Home Screen', async () => {
@@ -330,6 +334,14 @@ describe('SettingsView', () => {
       const wrapper = await mountView()
 
       expect(wrapper.get('[data-testid="install-hint"]').text()).toContain('Add to Home Screen')
+    })
+
+    it('points macOS Safari at Add to Dock', async () => {
+      stubStorage(false, MAC_SAFARI)
+
+      const wrapper = await mountView()
+
+      expect(wrapper.get('[data-testid="install-hint"]').text()).toContain('Add to Dock')
     })
 
     it('says nothing in a browser that cannot install it', async () => {
