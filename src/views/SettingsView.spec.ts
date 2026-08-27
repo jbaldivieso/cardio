@@ -39,12 +39,21 @@ describe('SettingsView', () => {
     vi.spyOn(URL, 'revokeObjectURL').mockReturnValue(undefined)
   })
 
+  const mounted: VueWrapper[] = []
+
+  // Timers and mounted components are undone here rather than in the tests that
+  // make them: a failing assertion would skip that line, and a leaked clock or a
+  // dialog still listening on `document` turns one failure into a cascade.
   afterEach(() => {
+    for (const wrapper of mounted) wrapper.unmount()
+    mounted.length = 0
+    vi.useRealTimers()
     vi.unstubAllGlobals()
   })
 
   async function mountView(): Promise<VueWrapper> {
     const wrapper = mount(SettingsView, { attachTo: document.body })
+    mounted.push(wrapper)
     await flushPromises()
     return wrapper
   }
@@ -131,7 +140,16 @@ describe('SettingsView', () => {
 
       const anchor = clicked.mock.instances[0] as HTMLAnchorElement
       expect(anchor.download).toBe('cardio-backup-2026-08-26.json')
-      vi.useRealTimers()
+    })
+
+    it('surfaces a failed export instead of leaving the screen looking done', async () => {
+      vi.spyOn(repositories.library, 'snapshot').mockRejectedValue(new Error('IndexedDB is gone.'))
+      const wrapper = await mountView()
+
+      await wrapper.get('[data-testid="export-backup"]').trigger('click')
+      await shown(wrapper, 'backup-error')
+
+      expect(wrapper.get('[data-testid="backup-error"]').text()).toContain('IndexedDB is gone.')
     })
   })
 
@@ -189,6 +207,41 @@ describe('SettingsView', () => {
       await chooseFile(wrapper, orphaned)
 
       expect(wrapper.get('[data-testid="import-repairs"]').text()).toContain('Unsorted')
+    })
+
+    it('forgets the file once it has been imported', async () => {
+      const wrapper = await mountView()
+      await chooseFile(wrapper, otherLibrary())
+
+      await wrapper.get('[data-testid="import-merge"]').trigger('click')
+      await shown(wrapper, 'import-report')
+
+      expect(wrapper.get('[data-testid="import-filename"]').text()).toBe('No file chosen')
+    })
+
+    it('does not offer to load a file chosen on an earlier visit', async () => {
+      const first = await mountView()
+      await chooseFile(first, otherLibrary())
+      first.unmount()
+
+      const second = await mountView()
+
+      expect(second.find('[data-testid="import-preview"]').exists()).toBe(false)
+      expect(second.get('[data-testid="import-filename"]').text()).toBe('No file chosen')
+    })
+
+    it('says so when the browser cannot read the file that was chosen', async () => {
+      const wrapper = await mountView()
+      const input = wrapper.get('[data-testid="import-file"]')
+      Object.defineProperty(input.element, 'files', {
+        configurable: true,
+        value: [{ name: 'gone.json', text: () => Promise.reject(new Error('NotReadableError')) }],
+      })
+
+      await input.trigger('change')
+      await flushPromises()
+
+      expect(wrapper.get('[data-testid="import-errors"]').text()).toContain('could not be read')
     })
 
     it('holds a replace behind a typed confirmation', async () => {
@@ -277,6 +330,27 @@ describe('SettingsView', () => {
 
       expect(wrapper.find('[data-testid="typed-confirm-dialog"]').exists()).toBe(true)
       expect(await test.db.folders.get(folder.id)).toBeDefined()
+    })
+
+    it('quotes no counts when the library could not be read', async () => {
+      vi.spyOn(repositories.folders, 'list').mockRejectedValue(new Error('IndexedDB is gone.'))
+
+      const wrapper = await mountView()
+
+      // Never "0 folders, 0 decks and 0 cards": that promises the user there is
+      // nothing to lose, right beside the button that deletes everything.
+      expect(wrapper.get('[data-testid="danger-summary"]').text()).toBe(
+        'Everything you have is stored in this browser. There is no undo and no trash.',
+      )
+      expect(wrapper.get('[data-testid="backup-error"]').text()).toContain('IndexedDB is gone.')
+    })
+
+    it('names what will go when the library has been read', async () => {
+      await repositories.folders.create('Spanish', 1000)
+
+      const wrapper = await mountView()
+
+      expect(wrapper.get('[data-testid="danger-summary"]').text()).toContain('2 folders')
     })
 
     it('leaves a usable empty app once the confirmation is typed', async () => {

@@ -2,6 +2,14 @@
 import { computed, onMounted, ref } from 'vue'
 import TypedConfirmDialog from '@/components/TypedConfirmDialog.vue'
 import { isStoragePersistent } from '@/db/persistence'
+import type { LibraryCounts } from '@/domain/backup'
+import {
+  deleteEverythingPrompt,
+  importPreview,
+  repairNotes,
+  replaceEverythingPrompt,
+  storedPrompt,
+} from '@/domain/prompts'
 import { useBackupStore } from '@/stores/backup'
 import { useLibraryStore } from '@/stores/library'
 import { THEME_PREFERENCES, useThemeStore } from '@/stores/theme'
@@ -21,9 +29,8 @@ const confirming = ref<'replace' | 'delete' | null>(null)
 const deleted = ref(false)
 /** `null` until the browser has answered (§4.5). */
 const persistent = ref<boolean | null>(null)
-/** The chosen file's name: the control is re-armed after every read, so it
- * cannot report its own. */
-const chosenName = ref<string | null>(null)
+/** `false` until the library has been read once, so no count is quoted early. */
+const loaded = ref(false)
 
 // A tab and an installed app differ only in display mode; §7.8 wants the
 // install instructions in the first and not the second.
@@ -37,57 +44,40 @@ const themeLabels: Record<ThemePreference, string> = {
 }
 
 onMounted(async () => {
+  // The backup store outlives this screen. A file validated on an earlier visit
+  // would otherwise come back armed beside a file field that has forgotten its
+  // name, and Merge would write a file the user never chose this time.
+  backup.discard()
   await library.load()
+  loaded.value = library.error === null
   persistent.value = await isStoragePersistent()
 })
 
-const totals = computed(() => ({
-  folders: library.folders.length,
-  decks: library.decks.length,
-  cards: library.decks.reduce((sum, deck) => sum + library.cardCount(deck.id), 0),
-}))
-
-function plural(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? '' : 's'}`
-}
-
-function listOf(counts: { folders: number; decks: number; cards: number }): string {
-  return `${plural(counts.folders, 'folder')}, ${plural(counts.decks, 'deck')} and ${plural(counts.cards, 'card')}`
-}
-
-const deleteMessage = computed(
-  () =>
-    `This deletes every folder, deck and card you have — ${listOf(totals.value)}. Unsorted comes back empty; nothing else comes back at all.`,
-)
-
-const repairNotes = computed(() => {
-  const repairs = backup.pending?.repairs
-  if (!repairs) return []
-  const notes: string[] = []
-  if (repairs.rehomedDecks > 0) {
-    notes.push(`${plural(repairs.rehomedDecks, 'deck')} with no folder will go to Unsorted.`)
+/**
+ * What is stored, or `null` when the library could not be read. A failed read
+ * leaves the lists empty, and quoting those zeros would promise the user there
+ * is nothing to lose immediately before offering to delete everything.
+ */
+const totals = computed<LibraryCounts | null>(() => {
+  if (!loaded.value || library.error !== null) return null
+  return {
+    folders: library.folders.length,
+    decks: library.decks.length,
+    cards: library.decks.reduce((sum, deck) => sum + library.cardCount(deck.id), 0),
   }
-  if (repairs.rejectedCards > 0) {
-    notes.push(`${plural(repairs.rejectedCards, 'card')} with no deck will be left out.`)
-  }
-  return notes
 })
+
+const error = computed(() => backup.error ?? library.error)
+const repairs = computed(() => (backup.pending ? repairNotes(backup.pending.repairs) : []))
 
 async function onFileChosen(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement
   const chosen = input.files?.[0]
   if (!chosen) return
   deleted.value = false
-  chosenName.value = chosen.name
-  backup.inspect(await chosen.text())
+  await backup.read(chosen)
   // Clearing it means choosing the same file twice still re-reads it.
   input.value = ''
-}
-
-function cancelImport(): void {
-  backup.discard()
-  chosenName.value = null
-  confirming.value = null
 }
 
 async function onConfirmed(): Promise<void> {
@@ -131,6 +121,7 @@ async function onConfirmed(): Promise<void> {
       <button
         type="button"
         class="button is-primary cardio-action"
+        :disabled="backup.busy"
         data-testid="export-backup"
         @click="backup.exportBackup()"
       >
@@ -147,6 +138,7 @@ async function onConfirmed(): Promise<void> {
               type="file"
               accept="application/json,.json"
               aria-labelledby="import-label"
+              :disabled="backup.busy"
               data-testid="import-file"
               @change="onFileChosen"
             />
@@ -154,7 +146,7 @@ async function onConfirmed(): Promise<void> {
               <span class="file-label">Choose a file…</span>
             </span>
             <span class="file-name" data-testid="import-filename">
-              {{ chosenName ?? 'No file chosen' }}
+              {{ backup.filename ?? 'No file chosen' }}
             </span>
           </label>
         </div>
@@ -168,14 +160,15 @@ async function onConfirmed(): Promise<void> {
       </div>
 
       <div v-if="backup.pending" class="notification is-info is-light">
-        <p data-testid="import-preview">That backup holds {{ listOf(backup.pending.counts) }}.</p>
-        <ul v-if="repairNotes.length > 0" class="mt-2" data-testid="import-repairs">
-          <li v-for="note in repairNotes" :key="note">{{ note }}</li>
+        <p data-testid="import-preview">{{ importPreview(backup.pending.counts) }}</p>
+        <ul v-if="repairs.length > 0" class="mt-2" data-testid="import-repairs">
+          <li v-for="note in repairs" :key="note">{{ note }}</li>
         </ul>
         <div class="buttons mt-3">
           <button
             type="button"
             class="button is-primary cardio-action"
+            :disabled="backup.busy"
             data-testid="import-merge"
             @click="backup.merge()"
           >
@@ -184,12 +177,15 @@ async function onConfirmed(): Promise<void> {
           <button
             type="button"
             class="button is-danger cardio-action"
+            :disabled="backup.busy"
             data-testid="import-replace"
             @click="confirming = 'replace'"
           >
             Replace everything
           </button>
-          <button type="button" class="button cardio-action" @click="cancelImport">Cancel</button>
+          <button type="button" class="button cardio-action" @click="backup.discard()">
+            Cancel
+          </button>
         </div>
       </div>
 
@@ -200,8 +196,8 @@ async function onConfirmed(): Promise<void> {
         <template v-else> Replaced everything: {{ backup.report.added }} added. </template>
       </p>
 
-      <p v-if="backup.error" class="notification is-danger is-light" data-testid="backup-error">
-        {{ backup.error }}
+      <p v-if="error" class="notification is-danger is-light" data-testid="backup-error">
+        {{ error }}
       </p>
     </section>
 
@@ -234,12 +230,13 @@ async function onConfirmed(): Promise<void> {
 
     <section class="block" aria-labelledby="settings-danger">
       <h2 id="settings-danger" class="title is-6 has-text-danger">Danger zone</h2>
-      <p class="is-size-7 has-text-grey mb-2">
-        {{ listOf(totals) }} stored in this browser. There is no undo and no trash.
+      <p class="is-size-7 has-text-grey mb-2" data-testid="danger-summary">
+        {{ storedPrompt(totals) }}
       </p>
       <button
         type="button"
         class="button is-danger cardio-action"
+        :disabled="backup.busy"
         data-testid="delete-all"
         @click="confirming = 'delete'"
       >
@@ -253,7 +250,7 @@ async function onConfirmed(): Promise<void> {
     <TypedConfirmDialog
       v-if="confirming === 'replace'"
       title="Replace everything?"
-      :message="`This clears ${listOf(totals)} and loads the backup in their place. There is no undo.`"
+      :message="replaceEverythingPrompt(totals)"
       phrase="REPLACE"
       confirm-label="Replace everything"
       @confirm="onConfirmed"
@@ -263,7 +260,7 @@ async function onConfirmed(): Promise<void> {
     <TypedConfirmDialog
       v-if="confirming === 'delete'"
       title="Delete all data?"
-      :message="deleteMessage"
+      :message="deleteEverythingPrompt(totals)"
       phrase="DELETE"
       confirm-label="Delete everything"
       @confirm="onConfirmed"
