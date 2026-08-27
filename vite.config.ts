@@ -21,7 +21,11 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+      // Everything in `public/` is already in `dist/` when `workbox.globPatterns`
+      // sweeps it, so neither `includeAssets` nor the plugin's own manifest-icon
+      // pass adds anything — they only put the five icons in the precache
+      // manifest twice each. The sweep is the single source of what is cached.
+      includeManifestIcons: false,
       manifest: {
         id: BASE,
         name: 'Cardio',
