@@ -715,24 +715,43 @@ screen.
 
 **Decision.** Spec §7.8 asks for "install instructions when not installed". They are
 shown where the browser has actually offered to install the app — Chrome and its kin,
-once `beforeinstallprompt` has fired — or where installing is possible without such an
-event, which is Safari on iOS. Everywhere else the section is absent, not empty.
+once `beforeinstallprompt` has fired — or in the two places installing works with no such
+event: a full browser on iOS, which installs from the Share sheet, and Safari 17 or later
+on macOS, which installs from File > Add to Dock. Everywhere else the section is absent,
+not empty.
 
-**Why.** The instructions name a specific menu item. A desktop Firefox has no install
-command at all, and Chrome fires no event when the criteria are unmet or the app is
-already installed. Instructions no menu can carry out read as a bug in the browser or in
-the user; a browser that cannot install the app is better off saying nothing about it.
-The event is the only reliable signal, since a user agent string does not say whether
-this build is installable here.
+**Why.** Instructions no menu can carry out read as a bug in the browser or in the user.
+A desktop Firefox has no install command at all, and Chrome fires no event when the
+criteria are unmet or the app is already installed, so a browser that cannot install the
+app is better off saying nothing about it. The event is the only reliable signal that
+this build is installable here, since a user agent string does not say so.
+
+The same principle governs the wording, which is why the `browser` branch names no menu
+item: it is "Install app" on Android Chrome, "Install <name>…" under Cast/save/share on
+desktop Chrome, "Apps > Install this site as an app" on Edge and "Add page to > Home
+screen" on Samsung Internet, and all four fire the event. The text points at the menu and
+the address bar without claiming what either is labelled.
 
 **Consequence.** The signal arrives once, moments after load, long before anyone opens
 Settings, so `useInstallStore` is created at boot in `main.ts` rather than by the screen
-that reads it. The event is listened for and never deferred: calling `preventDefault()`
-on it suppresses the browser's own install affordance, which is the very thing the hint
-points at. `appinstalled` clears the hint, so a tab that installs the app while it is
-open stops advertising it.
+that reads it. That one call is load-bearing and nothing tests it — `src/main.ts` is
+excluded from coverage, and both specs build the store by hand — so removing it would
+break the hint silently. The event is listened for and never deferred: calling
+`preventDefault()` on it suppresses the browser's own install affordance, which is the
+very thing the hint points at. `appinstalled` clears the hint, so a tab that installs the
+app while it is open stops advertising it.
 
-The iOS branch is user-agent sniffed, in `isIosBrowser`, because Safari offers no
-alternative. iPadOS 13 and later report the desktop Mac string, so the touch-point count
-is what separates an iPad from a Mac; a Mac that grows a touch screen would see the wrong
-hint, and this is the whole cost of the approach.
+The two event-less branches are user-agent sniffed, in `isIosBrowser` and
+`isMacSafariWithDock`, because neither platform offers an alternative. The costs, all of
+them:
+
+- iPadOS 13 and later report the desktop Mac string, so the touch-point count is what
+  separates an iPad from a Mac. A Mac that grows a touch screen would see the iOS hint.
+- A web view embedded in another app reports iOS but has no Share sheet. It is excluded
+  by the host app's token (`FBAN`, `Instagram`, `GSA/` and the rest) or by the absence of
+  `Safari/`, which a bare `WKWebView` omits. That list is a moving target; an app not on
+  it shows a hint its user cannot act on.
+- Add to Dock arrived in Safari 17 but only on macOS Sonoma, and the platform part of the
+  user agent has been frozen at `10_15_7` for years. A Safari 17 on Ventura is therefore
+  told about a menu item it does not have. Sonoma is three years old, so this is the
+  narrow end of a narrow branch, but it is not nothing.
