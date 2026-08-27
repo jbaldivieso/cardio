@@ -19,6 +19,18 @@ export interface LibraryData {
   cards: Card[]
 }
 
+/** How many rows of each kind a library holds: what a confirmation quotes (§10). */
+export interface LibraryCounts {
+  folders: number
+  decks: number
+  cards: number
+}
+
+/** The size of a library, for the screen to name before and after a write. */
+export function countsOf(data: LibraryData): LibraryCounts {
+  return { folders: data.folders.length, decks: data.decks.length, cards: data.cards.length }
+}
+
 /** A library plus the envelope that says which app and format wrote it. */
 export interface BackupFile extends LibraryData {
   app: string
@@ -94,6 +106,23 @@ class RowErrors {
     }
   }
 
+  /**
+   * A §4.2 text field: present, a string to begin with, and passing its own
+   * validator. Coercing here would launder a number or an object into a name.
+   */
+  text(row: Record<string, unknown>, field: string, validate: (raw: string) => string): string {
+    const value = row[field]
+    if (value === undefined || value === null) {
+      this.add(`${field} is missing.`)
+      return ''
+    }
+    if (typeof value !== 'string') {
+      this.add(`${field} is not text.`)
+      return ''
+    }
+    return this.validated(() => validate(value))
+  }
+
   string(row: Record<string, unknown>, field: string): string {
     const value = row[field]
     if (typeof value !== 'string' || value.trim().length === 0) {
@@ -120,23 +149,50 @@ function readAttempt(value: unknown): Attempt | null {
   return { at, got }
 }
 
-/** Statistics, or `null` if the shape is not statistics at all (§4.1). */
-function readStats(value: unknown): CardStats | null {
-  if (!isRecord(value)) return null
-  const { gets, misses, history, lastSeenAt } = value
+/**
+ * Statistics (§4.1), or `null` with the field that made them unreadable named —
+ * "stats.gets is not a count." tells the user which of the four to look at,
+ * where "statistics are unreadable" leaves them opening the file to guess.
+ */
+function readStats(value: unknown, errors: RowErrors): CardStats | null {
+  if (!isRecord(value)) {
+    errors.add('statistics are missing or unreadable.')
+    return null
+  }
+  const { gets, misses, history } = value
   const counter = (count: unknown): boolean =>
     typeof count === 'number' && Number.isInteger(count) && count >= 0
-  if (!counter(gets) || !counter(misses)) return null
-  if (!Array.isArray(history)) return null
+  let ok = true
+  if (!counter(gets)) {
+    errors.add('stats.gets is not a count.')
+    ok = false
+  }
+  if (!counter(misses)) {
+    errors.add('stats.misses is not a count.')
+    ok = false
+  }
+  // Absent means never seen: a file that omits its null fields is one to read,
+  // not one to refuse over (§10 repairs what it can).
+  const lastSeenAt = value.lastSeenAt ?? null
   if (lastSeenAt !== null && (typeof lastSeenAt !== 'number' || !Number.isFinite(lastSeenAt))) {
+    errors.add('stats.lastSeenAt is not a timestamp.')
+    ok = false
+  }
+  if (!Array.isArray(history)) {
+    errors.add('stats.history is not a list.')
     return null
   }
   const attempts: Attempt[] = []
   for (const entry of history) {
     const attempt = readAttempt(entry)
-    if (attempt === null) return null
+    if (attempt === null) {
+      errors.add('stats.history holds something that is not an attempt.')
+      ok = false
+      break
+    }
     attempts.push(attempt)
   }
+  if (!ok) return null
   return {
     gets: gets as number,
     misses: misses as number,
@@ -184,7 +240,7 @@ function readTable<T extends { id: string }>(
 function readFolder(row: Record<string, unknown>, errors: RowErrors): Folder {
   return {
     id: errors.string(row, 'id'),
-    name: errors.validated(() => validateName(String(row.name ?? ''))),
+    name: errors.text(row, 'name', validateName),
     createdAt: errors.number(row, 'createdAt'),
     updatedAt: errors.number(row, 'updatedAt'),
   }
@@ -194,20 +250,19 @@ function readDeck(row: Record<string, unknown>, errors: RowErrors): Deck {
   return {
     id: errors.string(row, 'id'),
     folderId: errors.string(row, 'folderId'),
-    name: errors.validated(() => validateName(String(row.name ?? ''))),
+    name: errors.text(row, 'name', validateName),
     createdAt: errors.number(row, 'createdAt'),
     updatedAt: errors.number(row, 'updatedAt'),
   }
 }
 
 function readCard(row: Record<string, unknown>, errors: RowErrors): Card {
-  const stats = readStats(row.stats)
-  if (stats === null) errors.add('statistics are missing or unreadable.')
+  const stats = readStats(row.stats, errors)
   return {
     id: errors.string(row, 'id'),
     deckId: errors.string(row, 'deckId'),
-    front: errors.validated(() => validateFace(String(row.front ?? ''), 'front')),
-    back: errors.validated(() => validateFace(String(row.back ?? ''), 'back')),
+    front: errors.text(row, 'front', (raw) => validateFace(raw, 'front')),
+    back: errors.text(row, 'back', (raw) => validateFace(raw, 'back')),
     createdAt: errors.number(row, 'createdAt'),
     updatedAt: errors.number(row, 'updatedAt'),
     stats: stats ?? { gets: 0, misses: 0, history: [], lastSeenAt: null },

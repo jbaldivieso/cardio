@@ -209,6 +209,42 @@ describe('validateBackup', () => {
       expect(result.errors).toEqual(['Card 1: statistics are missing or unreadable.'])
     })
 
+    it('names the statistic it could not read', () => {
+      const result = validateBackup(
+        fileWith({ cards: [card({ stats: { ...emptyStats(), gets: -1 } })] }),
+      )
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.errors).toEqual(['Card 1: stats.gets is not a count.'])
+    })
+
+    it('rejects a face that is not text rather than stringifying it', () => {
+      const result = validateBackup(fileWith({ cards: [card({ front: { a: 1 } as never })] }))
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.errors).toEqual(['Card 1: front is not text.'])
+    })
+
+    it('rejects a name that is not text rather than stringifying it', () => {
+      const result = validateBackup(
+        fileWith({ folders: [{ id: 'folder-1', name: 12, createdAt: 1, updatedAt: 2 }] }),
+      )
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.errors).toEqual(['Folder 1: name is not text.'])
+    })
+
+    it('says a face is missing when it is absent altogether', () => {
+      const result = validateBackup(fileWith({ cards: [card({ back: undefined as never })] }))
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.errors).toEqual(['Card 1: back is missing.'])
+    })
+
     it('rejects two rows that claim the same id', () => {
       const result = validateBackup(fileWith({ cards: [card(), card()] }))
 
@@ -275,6 +311,16 @@ describe('validateBackup', () => {
   })
 
   describe('normalisation', () => {
+    it('reads a card with no lastSeenAt as one that has never been seen', () => {
+      const result = validateBackup(
+        fileWith({ cards: [card({ stats: { gets: 0, misses: 0, history: [] } as never })] }),
+      )
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.data.cards[0].stats.lastSeenAt).toBeNull()
+    })
+
     it('trims the whitespace around names and faces', () => {
       const result = validateBackup(fileWith({ cards: [card({ front: '  hablar  ' })] }))
 
