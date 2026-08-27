@@ -5,6 +5,7 @@ import { serialise } from '@/domain/backup'
 import type { LibraryData } from '@/domain/backup'
 import { useBackupStore } from '@/stores/backup'
 import { useLibraryStore } from '@/stores/library'
+import { useMasteryStore } from '@/stores/mastery'
 import { repositories } from '@/stores/repositories'
 import { useTestDatabase } from '@/test/repositories'
 
@@ -202,6 +203,18 @@ describe('backup store', () => {
       expect(library.folders.map((folder) => folder.name)).toContain('German')
     })
 
+    it('drops the mastery summaries the screens were showing', async () => {
+      const stored = await seedLibrary()
+      const mastery = useMasteryStore()
+      await mastery.ensure([stored.decks[0].id])
+      const store = useBackupStore()
+      store.inspect(otherLibrary())
+
+      await store.merge()
+
+      expect(mastery.deckSummary(stored.decks[0].id)).toBeUndefined()
+    })
+
     it('does nothing without a file to import', async () => {
       const store = useBackupStore()
 
@@ -229,6 +242,18 @@ describe('backup store', () => {
       await store.replace()
 
       expect(await test.db.folders.get(UNSORTED_FOLDER_ID)).toBeDefined()
+    })
+
+    it('drops the mastery summaries the screens were showing', async () => {
+      const stored = await seedLibrary()
+      const mastery = useMasteryStore()
+      await mastery.ensure([stored.decks[0].id])
+      const store = useBackupStore()
+      store.inspect(otherLibrary())
+
+      await store.replace()
+
+      expect(mastery.deckSummary(stored.decks[0].id)).toBeUndefined()
     })
 
     it('does nothing without a file to import', async () => {
@@ -260,6 +285,17 @@ describe('backup store', () => {
         UNSORTED_FOLDER_ID,
       ])
       expect(library.folders.map((folder) => folder.id)).toEqual([UNSORTED_FOLDER_ID])
+    })
+
+    it('drops the mastery summaries the screens were showing', async () => {
+      const stored = await seedLibrary()
+      const mastery = useMasteryStore()
+      await mastery.ensure([stored.decks[0].id])
+      const store = useBackupStore()
+
+      await store.deleteEverything()
+
+      expect(mastery.deckSummary(stored.decks[0].id)).toBeUndefined()
     })
 
     it('reports that it did it', async () => {

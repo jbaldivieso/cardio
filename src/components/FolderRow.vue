@@ -1,15 +1,19 @@
 <script setup lang="ts">
 import { computed, useId } from 'vue'
+import MasteryBar from '@/components/MasteryBar.vue'
+import type { MasterySummary } from '@/domain/aggregates'
 import type { Folder } from '@/domain/models'
 import { countLabel } from '@/domain/prompts'
 
-/** One row of the home screen (§7.1). The mastery bar arrives with item 09. */
+/** One row of the home screen (§7.1). */
 const props = defineProps<{
   folder: Folder
   deckCount: number
   cardCount: number
   /** False for Unsorted, which cannot be deleted (§4.2). */
   deletable: boolean
+  /** Undefined until the folder's decks have been summarised (§5.5). */
+  summary?: MasterySummary
 }>()
 
 const emit = defineEmits<{ rename: []; delete: []; quiz: [] }>()
@@ -78,5 +82,6 @@ function quiz(): void {
           : 'This folder has no cards to quiz yet.'
       }}
     </span>
+    <MasteryBar v-if="summary" :summary="summary" class="cardio-row-full mt-2" />
   </div>
 </template>

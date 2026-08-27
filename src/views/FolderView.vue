@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Breadcrumb from '@/components/Breadcrumb.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
@@ -9,6 +9,7 @@ import NameDialog from '@/components/NameDialog.vue'
 import type { Deck } from '@/domain/models'
 import { deleteDeckPrompt } from '@/domain/prompts'
 import { useLibraryStore } from '@/stores/library'
+import { useMasteryStore } from '@/stores/mastery'
 import { useQuizStore } from '@/stores/quiz'
 
 /** The decks of one folder (§7.2). `folderId` comes from the route. */
@@ -21,6 +22,7 @@ type Dialog =
   | { kind: 'delete'; deck: Deck }
 
 const library = useLibraryStore()
+const mastery = useMasteryStore()
 const quiz = useQuizStore()
 const router = useRouter()
 const dialog = ref<Dialog | null>(null)
@@ -36,6 +38,18 @@ onMounted(() => library.load())
 
 const folder = computed(() => library.folder(props.folderId))
 const decks = computed(() => library.decksIn(props.folderId))
+const error = computed(() => library.error ?? mastery.error)
+
+// The bars need each deck's cards, which are a read behind the decks themselves.
+// The watch is on the decks still missing a summary rather than on the deck list,
+// so one a write drops — a quiz answer, a card added — is read again while the
+// screen stays where it is. Asking for nothing costs nothing, which is what ends
+// the round trip once every deck is summarised.
+watch(
+  () => decks.value.filter((deck) => !mastery.deckSummary(deck.id)).map((deck) => deck.id),
+  (missing) => void mastery.ensure(missing),
+  { immediate: true },
+)
 
 const deletePrompt = computed(() =>
   dialog.value?.kind === 'delete'
@@ -82,8 +96,8 @@ async function confirmDelete(): Promise<void> {
   <section>
     <Breadcrumb :trail="[{ label: folder?.name ?? 'Folder' }]" />
 
-    <div v-if="library.error" class="notification is-danger is-light" data-testid="library-error">
-      {{ library.error }}
+    <div v-if="error" class="notification is-danger is-light" data-testid="library-error">
+      {{ error }}
     </div>
 
     <p v-if="library.loading" class="has-text-grey" data-testid="decks-loading">Loading…</p>
@@ -122,6 +136,7 @@ async function confirmDelete(): Promise<void> {
         :key="deck.id"
         :deck="deck"
         :card-count="library.cardCount(deck.id)"
+        :summary="mastery.deckSummary(deck.id)"
         @rename="openDialog({ kind: 'rename', deck })"
         @quiz="quizDeck(deck.id)"
         @move="openDialog({ kind: 'move', deck })"

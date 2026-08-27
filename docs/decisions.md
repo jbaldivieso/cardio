@@ -459,7 +459,50 @@ guess what is wrong with the deck.
 browser no longer enforces one for us. The `is-sr-only` sentence carries the reason in
 both states, so the description is useful once the deck has cards too.
 
-## ADR-032 — A backup's orphans are repaired, not refused
+## ADR-032 — Mastery summaries live in their own store, invalidated by the writer
+
+**Decision.** `src/stores/mastery.ts` holds one `MasterySummary` per deck id, reads a deck
+once, and keeps that summary until someone calls `invalidate(deckId)`. The store that
+performs a write makes that call: `src/stores/cards.ts` after every card write, and
+`src/stores/quiz.ts` after each answer it records and each one an undo takes back. Folder
+roll-ups are a computed over the library store's decks, so `mastery` imports `library`.
+
+**Why.** Banding a deck means reading all of its cards, which is far too much to do while
+a row renders (§13), so §5.5 asks for a memo per deck. A memo that outlives a mount cannot
+be kept honest by the "every screen calls `load()` on mount" rule that ADR-024 relies on:
+navigate to a deck, add a card, come back, and the bar would still show the old numbers.
+Something has to say when a summary died, and only the writer knows.
+
+This is not the sideways write ADR-024 rules out. That one had the cards store _author_ a
+number the library store also authors, giving one figure two sources that could drift.
+`invalidate` authors nothing: it drops a cache entry, and the next read recomputes from
+the database, which stays the single source. The `now` the store stamps at each read is
+the same clock the badges are scored against, so a screenful of mastery is one instant.
+
+**Consequence.** A deck whose summary is not read yet has no bar rather than a wrong one,
+and a folder waits for all of its decks before it shows anything — late beats wrong. Any
+future writer of `CardStats` has one obligation: invalidate the deck it wrote to. The
+cache is keyed by deck id and never pruned; ids are UUIDs, decks are few, and only decks
+the library still lists are ever looked up.
+
+## ADR-033 — The bar's segments are whole percentages, by largest remainder
+
+**Decision.** `segmentWidths()` in `src/domain/aggregates.ts` returns three integer
+percentages that add up to exactly 100: floor each share, then give the leftover percent
+to the bands that lost the most to the flooring, ties going to the band nearer the left.
+
+**Why.** Rounding three shares independently produces 99 or 101 — a bar visibly short of
+its track, or one segment clipped off the end. Letting the last segment absorb the
+remainder with `flex-grow` would hide the arithmetic but make the widths untestable, and
+the bar is small enough that a fractional percent buys nothing. Whole numbers keep the
+rendered `style` assertable against the spec's own example (5 / 3 / 2 → 50 / 30 / 20).
+
+**Consequence.** The arithmetic sits in the domain with a test, not in the SFC. The
+component maps the three numbers onto Bulma's `has-background-success`,
+`has-background-warning`, and plain `has-background` — the theme's neutral, which is also
+the empty track, so the untried share reads as bar that has not been filled in yet.
+
+## ADR-034 — A backup's orphans are repaired, not refused
 
 **Decision.** `validateBackup` rejects a file for its envelope (`app`, `schemaVersion`), a
 missing table, or any row that breaks §4.2 — and writes nothing when it does. Broken
@@ -480,7 +523,7 @@ than reporting them afterwards. Validation is file-scoped, as §10 writes it: it
 consult the live library, so a deck referencing a folder that exists on disk but not in
 the file is still re-homed.
 
-## ADR-033 — The reserved Unsorted id belongs to the domain
+## ADR-035 — The reserved Unsorted id belongs to the domain
 
 **Decision.** `UNSORTED_FOLDER_ID` moved from `src/db/index.ts` to `src/domain/models.ts`.
 `src/db` re-exports it, so every existing import still reads `from '@/db'`.
@@ -495,7 +538,7 @@ is a seeding detail, and only `seedDefaults` needs it.
 **Consequence.** One more constant lives in `models.ts` alongside `MASTERY_HISTORY_LIMIT`.
 Nothing else changed: `@/db` is still where the rest of the app reads it from.
 
-## ADR-034 — Importing is two steps, and the pending file is a shallow ref
+## ADR-036 — Importing is two steps, and the pending file is a shallow ref
 
 **Decision.** `useBackupStore` validates a chosen file into `pending` and writes nothing
 until the user picks merge or replace. `pending` is a `shallowRef`.
@@ -513,7 +556,7 @@ caught it (`merge` returning nothing) is worth keeping.
 `discard()` is what clears them. Anything else that later writes rows straight from a
 `ref` needs the same care.
 
-## ADR-035 — The version on the settings screen comes from the build
+## ADR-037 — The version on the settings screen comes from the build
 
 **Decision.** `vite.config.ts` defines `__APP_VERSION__` from `package.json`, declared in
 `src/env.d.ts`; `vitest.config.ts` mirrors the define so a spec renders the real value.

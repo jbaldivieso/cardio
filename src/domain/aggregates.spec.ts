@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { combineSummaries, summarise } from '@/domain/aggregates'
+import { combineSummaries, segmentWidths, summarise } from '@/domain/aggregates'
 import { emptyStats } from '@/domain/models'
 import type { Attempt, Card, CardStats } from '@/domain/models'
 
@@ -147,5 +147,42 @@ describe('combineSummaries', () => {
       mastered: 0,
       masteredPct: 0,
     })
+  })
+})
+
+describe('segmentWidths', () => {
+  /** A summary straight from counts, so the widths can be read off the shares. */
+  function summaryOf(mastered: number, learning: number, fresh: number) {
+    return summarise(
+      [
+        ...[...Array(mastered)].map(masteredCard),
+        ...[...Array(learning)].map(learningCard),
+        ...[...Array(fresh)].map(newCard),
+      ],
+      NOW,
+    )
+  }
+
+  it('sizes each band in proportion to its share of the deck', () => {
+    expect(segmentWidths(summaryOf(5, 3, 2))).toEqual({ mastered: 50, learning: 30, new: 20 })
+  })
+
+  it('fills the whole bar when the shares do not divide evenly', () => {
+    const widths = segmentWidths(summaryOf(1, 1, 1))
+
+    expect(widths.mastered + widths.learning + widths.new).toBe(100)
+  })
+
+  it('gives the leftover percent to the band with the largest remainder', () => {
+    // Two thirds is 66.66… and one third 33.33…: flooring both leaves 1% over.
+    expect(segmentWidths(summaryOf(2, 1, 0))).toEqual({ mastered: 67, learning: 33, new: 0 })
+  })
+
+  it('gives the whole bar to the one band that has every card', () => {
+    expect(segmentWidths(summaryOf(0, 0, 4))).toEqual({ mastered: 0, learning: 0, new: 100 })
+  })
+
+  it('leaves the bar empty for a deck with no cards', () => {
+    expect(segmentWidths(summarise([], NOW))).toEqual({ mastered: 0, learning: 0, new: 0 })
   })
 })

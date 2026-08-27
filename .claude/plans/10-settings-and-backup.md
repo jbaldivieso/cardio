@@ -65,8 +65,12 @@ Cloud backup, scheduled backup, partial (per-deck) export.
   shared by "Replace everything" and "Delete all data" — the same dialog, twice.
 - The plan's "Rejects:" list and its orphan bullet disagree about a deck with a missing
   folder and a card with a missing deck. §10 settles it: they are repaired, not refused.
-  See docs/decisions.md > ADR-032.
+  See docs/decisions.md > ADR-034.
 - Item 01 had already delivered `replaceAll` and the storage-durability request, so this
   item added `snapshot`, `mergeAll` and the `persisted()` status query beside them.
 - The library repository now reports merges as `{ added, skipped }` totalled across the
   three tables, which is what the screen says out loud.
+- Merged with item 09 after it landed. Its mastery memo is invalidated per deck by
+  whoever writes (ADR-032), which an import cannot express: a replace changes what every
+  deck id means, and some of them stop existing. `mastery.invalidateAll()` is the
+  library-wide form of the same rule, and every write in the backup store calls it.

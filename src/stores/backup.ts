@@ -4,6 +4,7 @@ import { backupFilename, serialise, validateBackup } from '@/domain/backup'
 import type { BackupRepairs, LibraryData } from '@/domain/backup'
 import { useErrorSurface } from '@/stores/errors'
 import { useLibraryStore } from '@/stores/library'
+import { useMasteryStore } from '@/stores/mastery'
 import { repositories } from '@/stores/repositories'
 
 /** The two ways §10 allows a backup to be loaded. */
@@ -129,7 +130,9 @@ export const useBackupStore = defineStore('backup', () => {
     busy.value = false
     if (!counts) return undefined
 
-    // Every screen that lists folders or decks is now out of date.
+    // Every screen that lists folders or decks is now out of date, and so is
+    // every mastery summary: this wrote whole decks, not one card (ADR-032).
+    useMasteryStore().invalidateAll()
     await useLibraryStore().load()
     pending.value = null
     report.value = { mode, repairs: file.repairs, ...counts }
@@ -160,6 +163,7 @@ export const useBackupStore = defineStore('backup', () => {
     })
     busy.value = false
     if (!done) return false
+    useMasteryStore().invalidateAll()
     await useLibraryStore().load()
     return true
   }

@@ -1,6 +1,6 @@
 # 09 — Mastery display
 
-Status: not started
+Status: done
 Depends on: 02, 04
 Spec: §5.5, §7.9, §7.3
 
@@ -31,10 +31,24 @@ Show what the user knows: a three-segment bar per deck and folder, and a badge p
 
 ## Acceptance
 
-- [ ] Bars appear on folder rows, deck rows, and badges on card rows.
-- [ ] Numbers update immediately after a quiz ends without a reload.
-- [ ] No mastery computation inside a `v-for` body (§13) — summaries come from the store.
+- [x] Bars appear on folder rows, deck rows, and badges on card rows.
+- [x] Numbers update immediately after a quiz ends without a reload.
+- [x] No mastery computation inside a `v-for` body (§13) — summaries come from the store.
 
 ## Out of scope
 
 Charts, history graphs, per-direction breakdowns.
+
+## Notes
+
+- The memo lives in a store of its own, `src/stores/mastery.ts`, which the writer
+  invalidates: see docs/decisions.md > ADR-032 for why that is not the sideways write
+  ADR-024 rules out.
+- The quiz store closes the second acceptance box: after each answer it records — and
+  each one an undo takes back — it calls `mastery.invalidate(deckId)`, which is what the
+  cards store already does after a card write. Both paths are covered by store specs, and
+  the screens re-read what a write dropped without being remounted.
+- `segmentWidths` (domain) hands the bar whole percentages that add up to 100 —
+  ADR-033.
+- Rebased onto items 06–08 after they landed. The quiz rows and the bars share those
+  rows; the bar takes a line of its own beneath the name and the actions.

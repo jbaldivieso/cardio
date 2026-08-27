@@ -1,0 +1,64 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { segmentWidths } from '@/domain/aggregates'
+import type { MasterySummary } from '@/domain/aggregates'
+import { masteryHeadline, masteryLabel } from '@/domain/prompts'
+
+/**
+ * The three-segment bar of §7.9: how much of a deck or folder is mastered,
+ * still being learned, and never tried, plus the headline percentage.
+ *
+ * The summary is handed in already computed — the store memoises one per deck
+ * (§5.5), so no row ever bands a card while it renders (§13).
+ */
+const props = defineProps<{ summary: MasterySummary }>()
+
+const SEGMENTS = [
+  { band: 'mastered', colour: 'has-background-success' },
+  { band: 'learning', colour: 'has-background-warning' },
+  // The theme's own neutral, which is also the empty track: the untried share
+  // reads as the part of the bar that has not been filled in yet.
+  { band: 'new', colour: 'has-background' },
+] as const
+
+const segments = computed(() => {
+  const widths = segmentWidths(props.summary)
+  return SEGMENTS.map((segment) => ({ ...segment, width: widths[segment.band] }))
+})
+
+const headline = computed(() => masteryHeadline(props.summary))
+const label = computed(() => masteryLabel(props.summary))
+</script>
+
+<template>
+  <div class="is-flex is-align-items-center is-gap-2" data-testid="mastery-bar">
+    <div
+      class="cardio-mastery-track has-background is-flex-grow-1"
+      role="img"
+      :aria-label="label"
+      data-testid="mastery-track"
+    >
+      <div
+        v-for="segment in segments"
+        :key="segment.band"
+        :class="segment.colour"
+        :style="{ width: `${segment.width}%` }"
+        :data-testid="`mastery-${segment.band}`"
+      />
+    </div>
+    <span class="is-size-7 has-text-grey is-flex-shrink-0" data-testid="mastery-headline">
+      {{ headline }}
+    </span>
+  </div>
+</template>
+
+<style scoped>
+/* A stacked bar of a fixed height is the one thing Bulma's progress element
+   cannot do: it draws a single value, not three shares of a whole. */
+.cardio-mastery-track {
+  display: flex;
+  height: 0.5rem;
+  overflow: hidden;
+  border-radius: 9999px;
+}
+</style>

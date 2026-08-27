@@ -5,6 +5,7 @@ import type { Card, CardStats, QuizDirection } from '@/domain/models'
 import { buildSession, defaultQuizConfig, parseQuizConfig, shuffle } from '@/domain/quiz'
 import type { QuizConfig } from '@/domain/quiz'
 import { useErrorSurface } from '@/stores/errors'
+import { useMasteryStore } from '@/stores/mastery'
 import { repositories } from '@/stores/repositories'
 
 /** Where a session is in its life (spec §6.5). */
@@ -82,6 +83,9 @@ export const useQuizStore = defineStore('quiz', () => {
    */
   const writing = ref(false)
   const { error, attempt } = useErrorSurface()
+  // Every answer changes what the card's deck is worth, and the store holding
+  // that summary has no other way of knowing (ADR-032).
+  const mastery = useMasteryStore()
 
   const current = computed<Card | null>(() => cards.value[index.value] ?? null)
   const total = computed(() => cards.value.length)
@@ -143,6 +147,7 @@ export const useQuizStore = defineStore('quiz', () => {
     writing.value = false
     if (!answered) return
 
+    mastery.invalidate(answered.deckId)
     cards.value = cards.value.map((entry) => (entry.id === answered.id ? answered : entry))
     answers.value = [...answers.value, { card: answered, got }]
     undoable.value = snapshot
@@ -166,6 +171,7 @@ export const useQuizStore = defineStore('quiz', () => {
     writing.value = false
     if (!restored) return
 
+    mastery.invalidate(restored.deckId)
     cards.value = cards.value.map((entry) => (entry.id === restored.id ? restored : entry))
     answers.value = answers.value.slice(0, -1)
     index.value = cards.value.findIndex((entry) => entry.id === restored.id)

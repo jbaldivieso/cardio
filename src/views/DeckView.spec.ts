@@ -65,6 +65,26 @@ describe('DeckView', () => {
     expect(rows(wrapper)[0].html()).toContain('<strong>ser</strong>')
   })
 
+  it('badges each card row with its mastery', async () => {
+    const card = await repositories.cards.create(deckId, { front: 'ser', back: 'to be' }, 1000)
+    // Five clean gets today: spec §5.4's mastery 100.
+    for (let i = 0; i < 5; i += 1) {
+      await repositories.cards.recordAttempt(card.id, true, Date.now())
+    }
+
+    const wrapper = await mountView()
+
+    expect(rows(wrapper)[0].get('[data-testid="mastery-badge"]').text()).toBe('100%')
+  })
+
+  it('badges a card nobody has answered as new', async () => {
+    await repositories.cards.create(deckId, { front: 'ser', back: 'to be' }, 1000)
+
+    const wrapper = await mountView()
+
+    expect(rows(wrapper)[0].get('[data-testid="mastery-badge"]').text()).toBe('new')
+  })
+
   it('invites a first card when the deck is empty', async () => {
     const wrapper = await mountView()
 
