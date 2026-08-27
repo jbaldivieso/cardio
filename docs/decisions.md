@@ -570,3 +570,87 @@ leaves nothing to drift.
 **Consequence.** The two Vite configs have to keep the same define. `vitest.config.ts` is
 already deliberately separate from `vite.config.ts` (no PWA plugin in unit tests), so this
 is the second thing they share knowingly rather than by import.
+
+## ADR-038 — One rule for the theme, enforced against `index.html` itself
+
+**Decision.** The pre-paint script in `index.html` reads an unrecognised value in
+`cardio.theme` as `system`, exactly as `readPreference()` does. `theme.spec.ts` extracts
+that script from the file and runs it, asserting it lands on the same theme as the store.
+
+**Why.** §11 asks the two to agree and the plan's acceptance box asks for no flash of the
+wrong palette, but "keep in sync" was only a comment. They had already drifted: the script
+read anything other than `light|dark|system` as `light`, the store read it as `system`, so
+a device set to dark with a stale or half-written key painted light before first paint and
+flipped to dark on mount — a flash on every reload, indefinitely, since nothing rewrites
+the key. A comment cannot fail; a spec can.
+
+**Consequence.** The script is now covered by a unit test that reads the repository's own
+`index.html` from disk, which is the only file outside `src/` any spec touches. Changing
+either half without the other turns that spec red.
+
+## ADR-039 — A summary dropped mid-read re-reads itself (amends ADR-032)
+
+**Decision.** When `ensure` finishes a read that `invalidate` or `invalidateAll` marked as
+dropped, it reads those decks again itself rather than waiting to be asked.
+
+**Why.** ADR-032 has the in-flight read throw its stale result away, which was right, and
+left the re-read to "the next `ensure`". There is no next one: `ensure` refuses to issue a
+read for a deck already in `reading`, and the screens call it from a watcher over the deck
+ids they are showing — a list a quiz answer or an import does not change. So the watcher
+never re-fires, the summary stays unknown, and the bar sits blank until the user navigates
+away and back. `invalidateAll` widened that from one deck to every deck being read, which
+is every deck on screen during an import.
+
+**Consequence.** `ensure` can now recurse once per invalidation that lands mid-read. It
+terminates because only a further write can refill `dropped`. The three specs that used to
+assert the summary was _absent_ after a mid-read write now assert it is _fresh_, which is
+the outcome those tests were really about.
+
+## ADR-040 — The chosen file belongs to the store, and the screen discards on entry
+
+**Decision.** `useBackupStore` holds the chosen file's name alongside `pending`, clears
+both when the file is loaded or discarded, and reads the `File` itself (`read(file)`) so a
+browser that cannot hand it over is refused with a reason. `SettingsView` calls
+`backup.discard()` in `onMounted`.
+
+**Why.** The store is app-scoped and the screen is not. A file validated on one visit
+survived navigating away: coming back re-created the view with no filename but left
+`pending` armed, so the screen offered Merge and Replace for a file it could not name and
+the user had not chosen this time. Splitting the file across the two — name on the screen,
+contents in the store — also meant a completed import cleared one and not the other. One
+owner fixes both, and moving `file.text()` inside the store puts a `NotReadableError` on
+the same error surface as a malformed file instead of rejecting into a `@change` handler.
+
+**Consequence.** `inspect(text)` stays for callers that already have the text; `read(file)`
+is what the screen uses. Any future screen that touches the backup store must assume it
+may arrive holding the last screen's state.
+
+## ADR-041 — The three modals share one shell
+
+**Decision.** `ModalShell.vue` owns the Bulma modal card, its title and close button, the
+backdrop click and the document-level Escape handler. `ConfirmDialog`, `TypedConfirmDialog`
+and `NameDialog` supply a body, a footer and whether the card is a `form`.
+
+**Why.** `TypedConfirmDialog` arrived as `ConfirmDialog`'s chrome with `NameDialog`'s input
+plumbing pasted into it — around 90 of its 104 lines already existed. Three copies of a
+focus-and-Escape contract is three places for it to drift, and the accessibility details
+are exactly the ones that are easy to get subtly different.
+
+**Consequence.** One more component in the tree, and the dialogs pass their `data-testid`
+down as a prop so every existing test and e2e selector still reaches them unchanged.
+
+## ADR-042 — A confirmation quotes no counts it could not read
+
+**Decision.** `SettingsView` treats the library's size as `LibraryCounts | null`, `null`
+until the first read succeeds and whenever `library.error` is set, and the §7.8 wording in
+`src/domain/prompts.ts` takes that `null` and drops the figures rather than printing zeros.
+The screen also renders `library.error`, which it previously ignored.
+
+**Why.** A failed read leaves the folder and deck lists empty, which is indistinguishable
+from an empty library. The danger zone then read "0 folders, 0 decks and 0 cards stored in
+this browser" and its confirmation promised the user there was nothing to lose immediately
+before `replaceAll` wiped a library that was in fact full. A count nobody has is not zero.
+
+**Consequence.** Two wordings for each destructive prompt, both covered by `prompts.spec.ts`.
+The action stays available when the read fails — the user may well be deleting _because_
+something is broken — it simply stops claiming to know what it is about to destroy.

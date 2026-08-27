@@ -74,3 +74,18 @@ Cloud backup, scheduled backup, partial (per-deck) export.
   whoever writes (ADR-032), which an import cannot express: a replace changes what every
   deck id means, and some of them stop existing. `mastery.invalidateAll()` is the
   library-wide form of the same rule, and every write in the backup store calls it.
+- Review round on PR #7. Fifteen findings, all fixed on the branch; the five that
+  changed a design decision are ADR-038 to ADR-042. The rest were local:
+  `snapshot()` now reads the three tables in one `'r'` transaction, so a write from a
+  second tab cannot tear a backup; the export's object URL outlives the click by a
+  minute, because Firefox and older WebKit fetch a `blob:` href after the click returns
+  and revoking on the next tick cancels the download silently; `offerDownload` moved
+  inside `attempt`, so a browser that refuses to make the URL says so instead of
+  rejecting into a click handler; `busy` is bound to the four buttons it guards, so its
+  no-op is visible rather than a click that does nothing; backup validation rejects a
+  non-string name or face instead of `String()`-ing it into `"[object Object]"`, names
+  which statistic it could not read, and reads an absent `lastSeenAt` as "never seen"
+  rather than failing the whole file over it; `SettingsView.spec.ts` and
+  `TypedConfirmDialog.spec.ts` unmount what they mount and reset the clock in
+  `afterEach`, so one failing assertion no longer leaks a 2026 clock and a live keydown
+  listener into every test after it.
