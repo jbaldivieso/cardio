@@ -654,3 +654,23 @@ before `replaceAll` wiped a library that was in fact full. A count nobody has is
 **Consequence.** Two wordings for each destructive prompt, both covered by `prompts.spec.ts`.
 The action stays available when the read fails — the user may well be deleting _because_
 something is broken — it simply stops claiming to know what it is about to destroy.
+
+## ADR-043 — The mastered segment is the headline number, not its own rounding
+
+**Supersedes the arithmetic in ADR-033.** `segmentWidths()` sets the mastered segment to
+`summary.masteredPct` exactly, and shares the remaining width between `learning` and
+`new` by largest remainder. The three still add up to 100.
+
+**Why.** ADR-033 rounded all three shares by largest remainder, independently of
+`masteredPct`, which spec §5.5 pins to `round(100 × mastered / total)`. The two rules
+disagree by a point on about one mix in twelve: a deck of one card per band draws the
+mastered segment at 34% beside a headline and an `aria-label` that both say 33%. The
+segment and the sentence next to it are the same claim, so they cannot be computed two
+different ways — and §5.5 owns `masteredPct`, so the bar is what yields.
+
+**Consequence.** The two remaining segments absorb the difference, so `learning` and
+`new` may each sit a point off their exact share — invisible on a bar this size, and
+neither is quoted in words anywhere. A deck rounding to `100%` mastered while a few cards
+are still unmastered draws a full bar; that already followed from §5.5 owning the
+headline. The leftover pass now shares one point between two bands rather than two
+points among three, and no longer mutates its accumulator from inside a `map` callback.

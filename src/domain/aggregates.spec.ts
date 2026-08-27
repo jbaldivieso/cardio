@@ -182,6 +182,29 @@ describe('segmentWidths', () => {
     expect(segmentWidths(summaryOf(0, 0, 4))).toEqual({ mastered: 0, learning: 0, new: 100 })
   })
 
+  it('draws the mastered segment at the percentage printed beside it', () => {
+    // A third each: masteredPct rounds 33.33 down to 33, and a bar that drew
+    // the segment at 34 would contradict its own headline and aria-label.
+    const summary = summaryOf(1, 1, 1)
+
+    expect(segmentWidths(summary).mastered).toBe(summary.masteredPct)
+  })
+
+  it('agrees with its headline and still fills the track, for every small mix', () => {
+    for (let mastered = 0; mastered <= 6; mastered += 1) {
+      for (let learning = 0; learning <= 6; learning += 1) {
+        for (let fresh = 0; fresh <= 6; fresh += 1) {
+          if (mastered + learning + fresh === 0) continue
+          const summary = summaryOf(mastered, learning, fresh)
+          const widths = segmentWidths(summary)
+
+          expect(widths.mastered).toBe(summary.masteredPct)
+          expect(widths.mastered + widths.learning + widths.new).toBe(100)
+        }
+      }
+    }
+  })
+
   it('leaves the bar empty for a deck with no cards', () => {
     expect(segmentWidths(summarise([], NOW))).toEqual({ mastered: 0, learning: 0, new: 0 })
   })
