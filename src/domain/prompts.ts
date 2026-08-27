@@ -7,6 +7,7 @@
 
 import type { MasterySummary } from '@/domain/aggregates'
 import type { BackupRepairs, LibraryCounts } from '@/domain/backup'
+import type { MasteryBand } from '@/domain/models'
 
 /** `4 decks`, `1 deck`. English pluralisation only — i18n is out of scope (§2). */
 export function countLabel(count: number, singular: string): string {
@@ -99,4 +100,14 @@ export function repairNotes(repairs: BackupRepairs): string[] {
     notes.push(`${countLabel(repairs.rejectedCards, 'card')} with no deck will be left out.`)
   }
   return notes
+}
+
+/**
+ * What a screen reader hears in place of one card's badge (§7.3). The badge
+ * itself is two or three characters — `new`, `68%` — which read as a number
+ * with nothing saying what it counts, so the label supplies the noun the bar
+ * beside it already gets.
+ */
+export function cardMasteryLabel(band: MasteryBand, score: number): string {
+  return band === 'new' ? 'Not attempted yet' : `${score}% mastered`
 }

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { band, mastery } from '@/domain/mastery'
+import { cardMasteryLabel } from '@/domain/prompts'
 import type { CardStats, MasteryBand } from '@/domain/models'
 
 /**
@@ -21,11 +22,17 @@ const TAGS: Record<MasteryBand, string> = {
 }
 
 const currentBand = computed(() => band(props.stats, props.now))
-const label = computed(() =>
-  currentBand.value === 'new' ? 'new' : `${mastery(props.stats, props.now)}%`,
-)
+const score = computed(() => mastery(props.stats, props.now))
+const label = computed(() => (currentBand.value === 'new' ? 'new' : `${score.value}%`))
+const ariaLabel = computed(() => cardMasteryLabel(currentBand.value, score.value))
 </script>
 
 <template>
-  <span class="tag" :class="TAGS[currentBand]" data-testid="mastery-badge">{{ label }}</span>
+  <span
+    class="tag"
+    :class="TAGS[currentBand]"
+    :aria-label="ariaLabel"
+    data-testid="mastery-badge"
+    >{{ label }}</span
+  >
 </template>

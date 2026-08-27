@@ -53,6 +53,14 @@ describe('MasteryBadge', () => {
   })
 
   // Bulma's tag colours are CSS variables its own data-theme swaps (ADR-011).
+  it('tells a screen reader what the percentage is a percentage of', () => {
+    expect(badge(answered(5, 0)).attributes('aria-label')).toBe('100% mastered')
+  })
+
+  it('tells a screen reader that a new card has not been attempted', () => {
+    expect(badge(emptyStats()).attributes('aria-label')).toBe('Not attempted yet')
+  })
+
   it('marks a mastered card with the success tag', () => {
     expect(badge(answered(5, 0)).classes()).toContain('is-success')
   })
