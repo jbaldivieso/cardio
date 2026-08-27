@@ -21,7 +21,14 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+      // Everything in `public/` is already in `dist/` when `workbox.globPatterns`
+      // sweeps it, so neither `includeAssets` nor the plugin's own manifest-icon
+      // pass adds anything — they only put the five icons in the precache
+      // manifest twice each. With both off, the sweep is what caches every file
+      // the app ships; the one entry it does not account for is
+      // `manifest.webmanifest`, which the plugin injects itself whenever
+      // `manifest` is set below, and which `globPatterns` does not match.
+      includeManifestIcons: false,
       manifest: {
         id: BASE,
         name: 'Cardio',
@@ -33,6 +40,8 @@ export default defineConfig({
         orientation: 'portrait',
         scope: BASE,
         start_url: BASE,
+        // Precached by the `globPatterns` sweep below, not by the plugin: any
+        // icon added here needs an extension that sweep matches.
         icons: [
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
           { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },
@@ -45,6 +54,7 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // The extension list has to cover every manifest icon above.
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,

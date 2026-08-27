@@ -4,6 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
 import { seedDefaults, UNSORTED_FOLDER_ID } from '@/db'
 import { serialise } from '@/domain/backup'
+import { useInstallStore } from '@/stores/install'
 import { THEME_KEY } from '@/stores/theme'
 import { repositories } from '@/stores/repositories'
 import { useTestDatabase } from '@/test/repositories'
@@ -22,9 +23,23 @@ describe('SettingsView', () => {
     }))
   }
 
-  /** The browser's answer about durability, which §7.8 asks the screen to show. */
-  function stubStorage(persisted: boolean): void {
-    vi.stubGlobal('navigator', { storage: { persisted: async () => persisted } })
+  /** A desktop browser with no install affordance, unless a test says otherwise. */
+  const FIREFOX = 'Mozilla/5.0 (X11; Linux x86_64; rv:127.0) Gecko/20100101 Firefox/127.0'
+  const IPHONE =
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1'
+  const MAC_SAFARI =
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15'
+
+  /**
+   * The browser's answer about durability, which §7.8 asks the screen to show,
+   * beside the user agent the install hint reads (§12).
+   */
+  function stubStorage(persisted: boolean, userAgent = FIREFOX, maxTouchPoints = 0): void {
+    vi.stubGlobal('navigator', {
+      userAgent,
+      maxTouchPoints,
+      storage: { persisted: async () => persisted },
+    })
   }
 
   beforeEach(async () => {
@@ -300,14 +315,45 @@ describe('SettingsView', () => {
   })
 
   describe('the app itself', () => {
-    it('shows how to install it when it is running in a browser tab', async () => {
+    // The real sequence: the event fires moments after boot, and the screen is
+    // opened long afterwards. Only a store built at boot is still listening.
+    // The wording names no menu item: it differs between Chrome, Edge and
+    // Samsung Internet, all of which fire the event (ADR-045).
+    it('points at the browser once the browser offers to install it', async () => {
+      useInstallStore()
+      globalThis.dispatchEvent(new Event('beforeinstallprompt'))
+
       const wrapper = await mountView()
 
-      expect(wrapper.get('[data-testid="install-hint"]').text()).toContain('Home Screen')
+      expect(wrapper.get('[data-testid="install-hint"]').text()).toContain('address bar')
+    })
+
+    it('points an iPhone at Add to Home Screen', async () => {
+      stubStorage(false, IPHONE, 5)
+
+      const wrapper = await mountView()
+
+      expect(wrapper.get('[data-testid="install-hint"]').text()).toContain('Add to Home Screen')
+    })
+
+    it('points macOS Safari at Add to Dock', async () => {
+      stubStorage(false, MAC_SAFARI)
+
+      const wrapper = await mountView()
+
+      expect(wrapper.get('[data-testid="install-hint"]').text()).toContain('Add to Dock')
+    })
+
+    it('says nothing in a browser that cannot install it', async () => {
+      const wrapper = await mountView()
+
+      expect(wrapper.find('[data-testid="install-hint"]').exists()).toBe(false)
     })
 
     it('drops the install hint once it is installed', async () => {
       stubMatchMedia(['display-mode: standalone'])
+      useInstallStore()
+      globalThis.dispatchEvent(new Event('beforeinstallprompt'))
 
       const wrapper = await mountView()
 

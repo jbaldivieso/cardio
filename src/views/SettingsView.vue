@@ -11,6 +11,7 @@ import {
   storedPrompt,
 } from '@/domain/prompts'
 import { useBackupStore } from '@/stores/backup'
+import { useInstallStore } from '@/stores/install'
 import { useLibraryStore } from '@/stores/library'
 import { THEME_PREFERENCES, useThemeStore } from '@/stores/theme'
 import type { ThemePreference } from '@/stores/theme'
@@ -32,9 +33,8 @@ const persistent = ref<boolean | null>(null)
 /** `false` until the library has been read once, so no count is quoted early. */
 const loaded = ref(false)
 
-// A tab and an installed app differ only in display mode; §7.8 wants the
-// install instructions in the first and not the second.
-const installed = globalThis.matchMedia?.('(display-mode: standalone)').matches ?? false
+// Which install instructions this browser can actually carry out, if any (§12).
+const install = useInstallStore()
 const version = __APP_VERSION__
 
 const themeLabels: Record<ThemePreference, string> = {
@@ -215,11 +215,17 @@ async function onConfirmed(): Promise<void> {
       </p>
     </section>
 
-    <section v-if="!installed" class="block" aria-labelledby="settings-install">
+    <section v-if="install.hint" class="block" aria-labelledby="settings-install">
       <h2 id="settings-install" class="title is-6">Install</h2>
       <p class="is-size-7" data-testid="install-hint">
-        Cardio runs offline once installed. On iOS, tap Share then Add to Home Screen. On Android or
-        desktop Chrome, open the browser menu and choose Install app.
+        Cardio runs offline once installed.
+        <template v-if="install.hint === 'ios'">Tap Share, then Add to Home Screen.</template>
+        <template v-else-if="install.hint === 'macos-safari'">
+          Open the File menu and choose Add to Dock.
+        </template>
+        <template v-else-if="install.hint === 'browser'">
+          This browser offers to install it, from its menu or from the address bar.
+        </template>
       </p>
     </section>
 
