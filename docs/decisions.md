@@ -458,3 +458,72 @@ guess what is wrong with the deck.
 **Consequence.** Every gated action needs its own guard in the handler, because the
 browser no longer enforces one for us. The `is-sr-only` sentence carries the reason in
 both states, so the description is useful once the deck has cards too.
+
+## ADR-032 — A backup's orphans are repaired, not refused
+
+**Decision.** `validateBackup` rejects a file for its envelope (`app`, `schemaVersion`), a
+missing table, or any row that breaks §4.2 — and writes nothing when it does. Broken
+_references_ are different: a deck whose folder is not in the file is re-homed to
+Unsorted, a card whose deck is not in the file is dropped, and both are counted and shown
+before the import runs.
+
+**Why.** §10 asks for exactly this ("orphans are re-homed: decks to Unsorted, cards are
+rejected with a count"), while the plan file's "Rejects:" list also names those two cases
+as rejections. Its next bullet then asks for the re-homing, so the two readings cannot
+both hold. The spec is canonical, and it is also the better behaviour: a backup is the
+user's only copy, and refusing all 4,000 cards over one dangling deck id is the one
+outcome nobody wants.
+
+**Consequence.** A partially hand-edited file will quietly flatten decks into Unsorted, so
+the settings screen names every repair before the user chooses merge or replace, rather
+than reporting them afterwards. Validation is file-scoped, as §10 writes it: it does not
+consult the live library, so a deck referencing a folder that exists on disk but not in
+the file is still re-homed.
+
+## ADR-033 — The reserved Unsorted id belongs to the domain
+
+**Decision.** `UNSORTED_FOLDER_ID` moved from `src/db/index.ts` to `src/domain/models.ts`.
+`src/db` re-exports it, so every existing import still reads `from '@/db'`.
+`UNSORTED_FOLDER_NAME` stayed in `src/db`.
+
+**Why.** Backup validation runs in the domain and has to name the folder it re-homes
+orphaned decks to (ADR-032). The domain imports nothing (CLAUDE.md > Architecture), so
+the alternatives were passing the id in as a parameter of `validateBackup` — ceremony for
+a constant §4.1 fixes — or duplicating the string. The id is a data-model fact; the name
+is a seeding detail, and only `seedDefaults` needs it.
+
+**Consequence.** One more constant lives in `models.ts` alongside `MASTERY_HISTORY_LIMIT`.
+Nothing else changed: `@/db` is still where the rest of the app reads it from.
+
+## ADR-034 — Importing is two steps, and the pending file is a shallow ref
+
+**Decision.** `useBackupStore` validates a chosen file into `pending` and writes nothing
+until the user picks merge or replace. `pending` is a `shallowRef`.
+
+**Why.** §10 requires validation before any write and asks the counts to be reported;
+holding the validated library between the two makes "no write on a bad file" the shape of
+the store rather than a rule to remember, and lets the screen say what the file holds — and
+what had to be repaired — while the user still has the choice. The ref is shallow for the
+reason ADR-015's neighbours already found in the quiz store: these rows go to IndexedDB
+verbatim, and a deep ref hands Dexie reactive proxies, which are not structured-cloneable.
+That failure is a `DataCloneError` at write time, not a type error, so the spec that
+caught it (`merge` returning nothing) is worth keeping.
+
+**Consequence.** The screen has three states to draw — refused, pending, imported — and
+`discard()` is what clears them. Anything else that later writes rows straight from a
+`ref` needs the same care.
+
+## ADR-035 — The version on the settings screen comes from the build
+
+**Decision.** `vite.config.ts` defines `__APP_VERSION__` from `package.json`, declared in
+`src/env.d.ts`; `vitest.config.ts` mirrors the define so a spec renders the real value.
+
+**Why.** §7.8 asks the settings screen to show the app version, and `package.json` is the
+one place it is written down. Importing `../../package.json` from a component would work,
+but it reaches outside `src/` and outside the `@/` alias, and it puts a build manifest in
+the module graph of a screen. A build-time constant keeps the value in one place and
+leaves nothing to drift.
+
+**Consequence.** The two Vite configs have to keep the same define. `vitest.config.ts` is
+already deliberately separate from `vite.config.ts` (no PWA plugin in unit tests), so this
+is the second thing they share knowingly rather than by import.
