@@ -104,10 +104,23 @@ describe('MasteryBar', () => {
     )
   })
 
-  it('leaves the new segment the theme neutral, the same as the empty track', () => {
+  // `has-background` is 96% lightness on a 100% `.box` in light mode (14% on 9%
+  // in dark), a track the reader cannot see. The theme's border grey — 86% and
+  // 24% — is the neutral that actually reads as unfilled bar (ADR-035).
+  it('draws the unfilled track in the theme border grey, not its background grey', () => {
     const wrapper = mountBar(5, 3, 2)
 
-    expect(wrapper.get('[data-testid="mastery-new"]').classes()).toContain('has-background')
-    expect(wrapper.get('[data-testid="mastery-track"]').classes()).toContain('has-background')
+    expect(wrapper.get('[data-testid="mastery-track"]').classes()).toContain(
+      'cardio-mastery-unfilled',
+    )
+    expect(wrapper.get('[data-testid="mastery-track"]').classes()).not.toContain('has-background')
+  })
+
+  it('leaves the new segment the same neutral as the empty track', () => {
+    const wrapper = mountBar(5, 3, 2)
+
+    expect(wrapper.get('[data-testid="mastery-new"]').classes()).toContain(
+      'cardio-mastery-unfilled',
+    )
   })
 })
