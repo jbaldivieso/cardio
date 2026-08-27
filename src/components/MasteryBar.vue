@@ -16,9 +16,9 @@ const props = defineProps<{ summary: MasterySummary }>()
 const SEGMENTS = [
   { band: 'mastered', colour: 'has-background-success' },
   { band: 'learning', colour: 'has-background-warning' },
-  // The theme's own neutral, which is also the empty track: the untried share
-  // reads as the part of the bar that has not been filled in yet.
-  { band: 'new', colour: 'has-background' },
+  // The same neutral as the empty track: the untried share reads as the part
+  // of the bar that has not been filled in yet.
+  { band: 'new', colour: 'cardio-mastery-unfilled' },
 ] as const
 
 const segments = computed(() => {
@@ -33,7 +33,7 @@ const label = computed(() => masteryLabel(props.summary))
 <template>
   <div class="is-flex is-align-items-center is-gap-2" data-testid="mastery-bar">
     <div
-      class="cardio-mastery-track has-background is-flex-grow-1"
+      class="cardio-mastery-track cardio-mastery-unfilled is-flex-grow-1"
       role="img"
       :aria-label="label"
       data-testid="mastery-track"
@@ -53,6 +53,13 @@ const label = computed(() => masteryLabel(props.summary))
 </template>
 
 <style scoped>
+/* Bulma has no background helper for its border grey, and `has-background` is
+   96% lightness against a 100% `.box` — a track nobody can see. This is still
+   a Bulma token, so the theme swaps it for us (ADR-011, ADR-044). */
+.cardio-mastery-unfilled {
+  background-color: var(--bulma-border);
+}
+
 /* A stacked bar of a fixed height is the one thing Bulma's progress element
    cannot do: it draws a single value, not three shares of a whole. */
 .cardio-mastery-track {

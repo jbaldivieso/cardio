@@ -654,3 +654,59 @@ before `replaceAll` wiped a library that was in fact full. A count nobody has is
 **Consequence.** Two wordings for each destructive prompt, both covered by `prompts.spec.ts`.
 The action stays available when the read fails — the user may well be deleting _because_
 something is broken — it simply stops claiming to know what it is about to destroy.
+
+## ADR-043 — The mastered segment is the headline number, not its own rounding
+
+**Supersedes the arithmetic in ADR-033.** `segmentWidths()` sets the mastered segment to
+`summary.masteredPct` exactly, and shares the remaining width between `learning` and
+`new` by largest remainder. The three still add up to 100.
+
+**Why.** ADR-033 rounded all three shares by largest remainder, independently of
+`masteredPct`, which spec §5.5 pins to `round(100 × mastered / total)`. The two rules
+disagree by a point on about one mix in twelve: a deck of one card per band draws the
+mastered segment at 34% beside a headline and an `aria-label` that both say 33%. The
+segment and the sentence next to it are the same claim, so they cannot be computed two
+different ways — and §5.5 owns `masteredPct`, so the bar is what yields.
+
+**Consequence.** The two remaining segments absorb the difference, so `learning` and
+`new` may each sit a point off their exact share — invisible on a bar this size, and
+neither is quoted in words anywhere. A deck rounding to `100%` mastered while a few cards
+are still unmastered draws a full bar; that already followed from §5.5 owning the
+headline. The leftover pass now shares one point between two bands rather than two
+points among three, and no longer mutates its accumulator from inside a `map` callback.
+
+## ADR-044 — The mastery track is painted with Bulma's border token, not a class
+
+**Supersedes the colour choice in ADR-033.** The empty track and the `new` segment take
+a one-declaration scoped class, `background-color: var(--bulma-border)`, instead of
+Bulma's `has-background` helper.
+
+**Why.** `has-background` resolves to `--bulma-background`, which Bulma sets to 96%
+lightness in light mode and 14% in dark. A mastery bar sits on a `.box`, which is
+`--bulma-scheme-main`: 100% and 9%. So the track ADR-033 called "the theme's neutral" was
+drawing at roughly 1.05:1 against the card behind it — invisible. Spec §7.9 asks for "an
+empty grey track" for a zero-card deck and a visible neutral for the untried share, and a
+deck of nothing but new cards rendered as no bar at all. Bulma generates no
+`has-background-border` helper, so there is no class that reaches the right token.
+
+**Alternatives.** A fixed grey such as `has-background-grey-lighter` — rejected: it does
+not move when the theme does, which is the whole reason ADR-011 colours by token.
+Bordering the track instead of filling it — rejected: a 0.5rem bar with a 1px border
+leaves almost no fill, and the border would read as part of the mastered segment.
+
+**Consequence.** One more custom declaration than the "Bulma classes first" rule prefers,
+in the SFC that already owns the bar's geometry. It stays a Bulma custom property, so
+`data-theme` still swaps it: 86% on 100% in light, 24% on 9% in dark.
+
+Measured, that moves the track from 1.10:1 to 1.41:1 in light and 1.14:1 to 1.59:1 in
+dark. Both are short of WCAG 1.4.11's 3:1, and deliberately so: reaching 3:1 against a
+white `.box` needs lightness at or below 60%, which is `--bulma-text-weak` — a mid-grey
+that reads as a _filled_ segment and would make an empty deck look part-mastered. The bar
+carries nothing that the headline beside it and its own `aria-label` do not already say
+in words, so it is a redundant visual aid rather than a graphic required to understand
+the content. Rendered against the real built stylesheet, the empty track now reads as a
+groove in both themes where before it was invisible in light.
+
+The component test asserts the class, which pins the token but not the contrast. Anything
+that changes this colour has to be looked at, in both themes, with an empty deck on
+screen.

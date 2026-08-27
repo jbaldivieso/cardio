@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  cardMasteryLabel,
   countLabel,
   deleteCardPrompt,
   deleteDeckPrompt,
@@ -186,5 +187,15 @@ describe('repairNotes', () => {
     expect(repairNotes({ rehomedDecks: 0, rejectedCards: 1 })).toEqual([
       '1 card with no deck will be left out.',
     ])
+  })
+})
+
+describe('cardMasteryLabel', () => {
+  it('says what the percentage on a card badge is a percentage of', () => {
+    expect(cardMasteryLabel('learning', 20)).toBe('20% mastered')
+  })
+
+  it('names a card nobody has answered rather than leaving `new` unexplained', () => {
+    expect(cardMasteryLabel('new', 0)).toBe('Not attempted yet')
   })
 })
