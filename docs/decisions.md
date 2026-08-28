@@ -444,9 +444,29 @@ button has no use for `1` or `←`, so grading still works with the focus on **G
 
 ## ADR-031 — A gated action says `aria-disabled`, not `disabled`
 
-**Narrowed by ADR-054**, which takes the quickstart buttons and both custom quizzes out
-of the DOM rather than disabling them. One gated action is left — **Start quiz** on the
-configure screen — and everything below still describes it.
+**Narrowed by ADR-054** to one control. The quickstart buttons and both custom quizzes
+are no longer rendered at all when they cannot run, leaving **Start quiz** on the
+configure screen (§7.5) as the only action this ADR still governs: `aria-disabled="true"`
+and `is-static` until a checked deck has a card, the `disabled` attribute off so it keeps
+its place in the tab order, and a guard in its own handler. Its reason is the one that
+was never hidden — `#quiz-start-reason` is an ordinary paragraph above the button, read
+by everyone rather than by a screen reader alone — which is part of why this is the gate
+worth keeping. Why it stays disabled rather than going away is ADR-054's argument, not
+this one's.
+
+**Correction: the tooltip half never worked.** The Why below says a `disabled` button's
+`title` "never appears" because it cannot be focused. That is the wrong mechanism — a
+`title` is drawn on hover, which focus has no bearing on — and the conclusion drawn from
+it does not survive either: Bulma's `.button.is-static` is `pointer-events: none`, so the
+element this ADR reached for instead sees no hover and draws no tooltip of its own. Every
+gated action here offered the pointer nothing; only the `aria-describedby` sentence ever
+carried the reason, and Start quiz never carried a `title` in the first place. §7.2's "disabled with
+a tooltip" is the requirement that went unmet for as long as this ADR stood, and ADR-054
+rewrote it rather than repairing it.
+
+The rest of this ADR is the decision as it was taken, when it covered four actions
+rather than one. Read its "each points at a visually hidden sentence" with the same
+care: Start quiz's has always been on screen.
 
 **Decision.** The quickstart buttons on a deck row, a folder row and the deck screen, and
 **Start quiz** on the configure screen, carry `aria-disabled="true"` and Bulma's
@@ -1060,9 +1080,9 @@ screens, and **Move** in a deck row's menu are absent from the DOM whenever they
 run. No `aria-disabled`, no `is-static`, no `title`, and none of the `is-sr-only`
 sentences that used to carry the reason: the control is simply not there until it works.
 
-**Why.** ADR-031 kept a gated action on screen so its reason could be heard, and made
-the reason reachable two ways — a `title` for the pointer, an `aria-describedby` sentence
-for a screen reader. Only one of the two ever worked. Bulma's `.button.is-static` is
+**Why.** ADR-031 kept a gated action on screen so its reason could be heard, and on the
+rows and the two headers it offered that reason two ways — a `title` for the pointer, an
+`aria-describedby` sentence for a screen reader. Only the second ever worked. Bulma's `.button.is-static` is
 `pointer-events: none`, so the element never sees a hover and the browser never draws the
 tooltip; the sighted user got a grey button that stayed silent when pressed and explained
 itself only to a screen reader. §7.2 had asked for "disabled with a tooltip", and the
