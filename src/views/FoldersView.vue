@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import FolderRow from '@/components/FolderRow.vue'
+import LibrarySplash from '@/components/LibrarySplash.vue'
 import NameDialog from '@/components/NameDialog.vue'
 import type { Folder } from '@/domain/models'
 import { deleteFolderPrompt } from '@/domain/prompts'
@@ -42,6 +43,12 @@ watch(
 
 const error = computed(() => library.error ?? mastery.error)
 
+// Nothing to list and nothing to act on: the greeting takes the whole screen,
+// header included, so a first visit reads as an invitation rather than as an
+// empty table (ADR-047). It waits for the read, so it never flashes over a
+// library that is merely still loading.
+const showSplash = computed(() => !library.loading && library.isEmpty)
+
 const deletePrompt = computed(() =>
   dialog.value?.kind === 'delete'
     ? deleteFolderPrompt(dialog.value.folder.name, library.countsFor(dialog.value.folder.id))
@@ -80,6 +87,7 @@ async function confirmDelete(): Promise<void> {
 <template>
   <section>
     <div
+      v-if="!showSplash"
       class="is-flex is-flex-wrap-wrap is-align-items-center is-justify-content-space-between is-gap-2 mb-4"
     >
       <h1 class="title is-4 mb-0">Folders</h1>
@@ -99,6 +107,8 @@ async function confirmDelete(): Promise<void> {
 
     <p v-if="library.loading" class="has-text-grey" data-testid="folders-loading">Loading…</p>
 
+    <LibrarySplash v-else-if="showSplash" @create="openDialog({ kind: 'create' })" />
+
     <template v-else>
       <FolderRow
         v-for="folder in library.folders"
@@ -112,14 +122,6 @@ async function confirmDelete(): Promise<void> {
         @rename="openDialog({ kind: 'rename', folder })"
         @delete="openDialog({ kind: 'delete', folder })"
       />
-
-      <div v-if="library.folders.length === 0" class="notification" data-testid="folders-empty">
-        <p class="has-text-weight-semibold">No folders yet.</p>
-        <p>
-          A folder holds decks, and a deck holds your cards. Create your first folder to get
-          started.
-        </p>
-      </div>
     </template>
 
     <NameDialog

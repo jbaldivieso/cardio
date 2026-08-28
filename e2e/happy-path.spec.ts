@@ -38,17 +38,20 @@ test('creates a library, quizzes a deck and sees its mastery move', async ({ pag
     await page.getByTestId(got ? 'quiz-got' : 'quiz-missed').click()
   }
 
-  await test.step('opens on a library holding only the seeded folder', async () => {
+  await test.step('opens on the splash a first visit gets', async () => {
     await page.goto('./')
-    await expect(page.getByTestId('folder-row')).toHaveCount(1)
-    await expect(page.getByTestId('folder-link')).toHaveText('Unsorted')
+    await expect(page.getByTestId('library-splash')).toContainText('Cardio')
+    await expect(page.getByTestId('folder-row')).toHaveCount(0)
   })
 
-  await test.step('creates the folder Spanish', async () => {
-    await page.getByTestId('new-folder').click()
+  await test.step('creates the folder Spanish from the splash', async () => {
+    await page.getByTestId('splash-create').click()
     await page.getByTestId('name-input').fill('Spanish')
     await page.getByTestId('name-save').click()
     await expect(page.getByRole('link', { name: 'Spanish' })).toBeVisible()
+    // The splash gives way to the list, which now holds Spanish and the
+    // seeded Unsorted the splash was covering.
+    await expect(page.getByTestId('folder-row')).toHaveCount(2)
   })
 
   await test.step('creates the deck Verbs inside it', async () => {

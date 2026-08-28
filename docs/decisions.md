@@ -781,3 +781,30 @@ DNS is the part this repository cannot assert: a `CNAME` record for `cardio` poi
 `jbaldivieso.github.io`, and **Settings → Pages → Custom domain** set to match, with
 _Enforce HTTPS_ on once the certificate is issued. Until both exist the deploy succeeds
 and the domain does not resolve.
+
+## ADR-047 — A first visit gets a splash, not an empty list
+
+**Decision.** The home screen shows a centred greeting — **Cardio**, _Flashcards for
+faster learning_, and a **Create a folder** button — instead of the folder list whenever
+the library holds no decks and no folder beyond the seeded Unsorted. The splash replaces
+the header too, so the greeting has the screen to itself. `library.isEmpty` is the
+predicate; the `folders-empty` notification it supersedes is gone.
+
+**Why.** Spec §7.1 asks for an empty state, but the one that existed keyed off
+`folders.length === 0`, and `seedDefaults()` puts Unsorted in the database before the
+first paint (§4.2). The condition was therefore unreachable outside a failed read: what a
+genuine first visit actually saw was a table of one row named Unsorted holding nothing,
+which explains neither what the app is nor what to do next.
+
+**Why that predicate.** "No decks" alone would take the splash down only once a deck
+existed, so the folder the splash just asked for would appear to do nothing. Excluding
+any folder but Unsorted keeps the button's effect immediate: create a folder, the splash
+gives way to the list holding it. Cards live in decks, so no decks means no cards without
+counting them.
+
+**Consequence.** Unsorted is unreachable while the splash is up, so the first deck of a
+brand-new library goes into a folder its owner named rather than into Unsorted. That is
+the flow §7.1's copy already described — decks live inside folders — and Unsorted returns
+to the list the moment anything else does. A read that fails leaves the library looking
+empty, so the splash appears under the error banner; the banner is what explains it, and
+inviting a folder is still the right offer.

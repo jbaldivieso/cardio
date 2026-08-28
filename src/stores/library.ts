@@ -39,6 +39,16 @@ export const useLibraryStore = defineStore('library', () => {
     return counts
   })
 
+  /**
+   * Nothing anyone made: no decks, so no cards, and no folder beyond the seeded
+   * Unsorted. The home screen greets this state instead of listing an empty
+   * Unsorted at someone who has never seen the app (ADR-047).
+   */
+  const isEmpty = computed(
+    () =>
+      decks.value.length === 0 && folders.value.every((folder) => folder.id === UNSORTED_FOLDER_ID),
+  )
+
   function countsFor(folderId: string): FolderCounts {
     return folderCounts.value[folderId] ?? { decks: 0, cards: 0 }
   }
@@ -157,6 +167,7 @@ export const useLibraryStore = defineStore('library', () => {
     decks,
     loading,
     error,
+    isEmpty,
     countsFor,
     decksIn,
     cardCount,

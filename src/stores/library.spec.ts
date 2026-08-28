@@ -352,6 +352,53 @@ describe('library store', () => {
     })
   })
 
+  describe('isEmpty', () => {
+    it('is true on a fresh install, where only the seeded Unsorted folder exists', async () => {
+      const store = useLibraryStore()
+
+      await store.load()
+
+      expect(store.isEmpty).toBe(true)
+    })
+
+    it('is false once a folder of their own is created', async () => {
+      const store = useLibraryStore()
+      await store.load()
+
+      await store.createFolder('Spanish')
+
+      expect(store.isEmpty).toBe(false)
+    })
+
+    it('is false once a deck lands in Unsorted', async () => {
+      const store = useLibraryStore()
+      await store.load()
+
+      await store.createDeck(UNSORTED_FOLDER_ID, 'Verbs')
+
+      expect(store.isEmpty).toBe(false)
+    })
+
+    it('is true again once the last deck and folder are gone', async () => {
+      const folderId = await seedFolder('Spanish', ['Verbs'], 3)
+      const store = useLibraryStore()
+      await store.load()
+
+      await store.removeFolder(folderId)
+
+      expect(store.isEmpty).toBe(true)
+    })
+
+    it('is true when even Unsorted is missing, so seeding failing still invites a folder', async () => {
+      vi.spyOn(repositories.folders, 'list').mockResolvedValueOnce([])
+      const store = useLibraryStore()
+
+      await store.load()
+
+      expect(store.isEmpty).toBe(true)
+    })
+  })
+
   it('clears a previous error once an action succeeds', async () => {
     const store = useLibraryStore()
     await store.load()

@@ -40,6 +40,12 @@ describe('FoldersView', () => {
     return wrapper.findAll('[data-testid="folder-row"]')
   }
 
+  /** A library someone has started, so the screen lists it instead of the splash. */
+  async function seedStartedLibrary(): Promise<void> {
+    await seedDefaults(test.db, 1000)
+    await repositories.decks.create(UNSORTED_FOLDER_ID, 'Verbs', 1000)
+  }
+
   it('renders one row per folder, with its deck and card counts', async () => {
     await seedDefaults(test.db, 1000)
     const folder = await repositories.folders.create('Spanish', 1000)
@@ -55,7 +61,7 @@ describe('FoldersView', () => {
   })
 
   it('links each row to its folder', async () => {
-    await seedDefaults(test.db, 1000)
+    await seedStartedLibrary()
 
     const wrapper = await mountView()
 
@@ -84,22 +90,64 @@ describe('FoldersView', () => {
   })
 
   it('says a folder holding no cards has none, rather than 0%', async () => {
-    await seedDefaults(test.db, 1000)
+    await seedStartedLibrary()
 
     const wrapper = await mountView()
 
     expect(rows(wrapper)[0].get('[data-testid="mastery-bar"]').text()).toBe('No cards yet')
   })
 
-  it('invites a first folder when there are none', async () => {
-    const wrapper = await mountView()
+  describe('the empty library', () => {
+    it('greets a first-time visitor with the splash instead of a list of nothing', async () => {
+      await seedDefaults(test.db, 1000)
 
-    expect(rows(wrapper)).toHaveLength(0)
-    expect(wrapper.get('[data-testid="folders-empty"]').text()).toContain('folder')
+      const wrapper = await mountView()
+
+      expect(rows(wrapper)).toHaveLength(0)
+      expect(wrapper.get('[data-testid="library-splash"]').text()).toContain('Cardio')
+    })
+
+    it('keeps the header out of the way while the splash is up', async () => {
+      await seedDefaults(test.db, 1000)
+
+      const wrapper = await mountView()
+
+      expect(wrapper.find('[data-testid="new-folder"]').exists()).toBe(false)
+    })
+
+    it('opens the new-folder dialog from the splash', async () => {
+      await seedDefaults(test.db, 1000)
+      const wrapper = await mountView()
+
+      await wrapper.get('[data-testid="splash-create"]').trigger('click')
+      await wrapper.get('[data-testid="name-input"]').setValue('Spanish')
+      await wrapper.get('[data-testid="name-save"]').trigger('click')
+
+      await vi.waitFor(() => expect(rows(wrapper)[0].text()).toContain('Spanish'))
+      expect(wrapper.find('[data-testid="library-splash"]').exists()).toBe(false)
+    })
+
+    it('lists the library instead once it holds a deck', async () => {
+      await seedStartedLibrary()
+
+      const wrapper = await mountView()
+
+      expect(wrapper.find('[data-testid="library-splash"]').exists()).toBe(false)
+      expect(rows(wrapper)).toHaveLength(1)
+    })
+
+    it('still explains a failed read, behind the splash', async () => {
+      vi.spyOn(repositories.folders, 'list').mockRejectedValue(new Error('IndexedDB is gone.'))
+
+      const wrapper = await mountView()
+
+      expect(wrapper.get('[data-testid="library-error"]').text()).toContain('IndexedDB is gone.')
+      expect(wrapper.find('[data-testid="library-splash"]').exists()).toBe(true)
+    })
   })
 
   it('offers rename but not delete on the Unsorted folder', async () => {
-    await seedDefaults(test.db, 1000)
+    await seedStartedLibrary()
 
     const wrapper = await mountView()
 
@@ -116,6 +164,7 @@ describe('FoldersView', () => {
   })
 
   it('adds a folder through the new-folder dialog', async () => {
+    await seedStartedLibrary()
     const wrapper = await mountView()
 
     await wrapper.get('[data-testid="new-folder"]').trigger('click')
@@ -127,6 +176,7 @@ describe('FoldersView', () => {
   })
 
   it('keeps the name dialog open, with the reason, when the write fails', async () => {
+    await seedStartedLibrary()
     const wrapper = await mountView()
     vi.spyOn(repositories.folders, 'create').mockRejectedValueOnce(
       new Error('Name cannot be empty.'),
