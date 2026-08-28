@@ -17,7 +17,7 @@ item. Each file states its own scope; `docs/spec.md` holds the detail it cites.
 | 09  | [Mastery display](09-mastery-display.md) — **done**                | 02, 04     |
 | 10  | [Settings, theme and backup](10-settings-and-backup.md) — **done** | 01         |
 | 11  | [PWA polish](11-pwa-polish.md) — **done**                          | 07         |
-| 12  | [E2E happy path](12-e2e-happy-path.md)                             | 08, 09     |
+| 12  | [E2E happy path](12-e2e-happy-path.md) — **done**                  | 08, 09     |
 
 01 and 02 were independent of each other. Everything from 03 on assumes the persistence
 layer exists.
