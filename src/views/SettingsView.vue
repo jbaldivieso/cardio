@@ -92,6 +92,16 @@ async function onConfirmed(): Promise<void> {
   <section>
     <h1 class="title is-4">Settings</h1>
 
+    <section class="block" aria-labelledby="settings-about">
+      <h2 id="settings-about" class="title is-6">About</h2>
+      <p class="is-size-7 mb-2" data-testid="about-mastery">
+        Every card has a mastery score out of 100. 80 or more counts as mastered. The score
+        increases as you get the card right. Your most recent answers count the most. It decreases
+        over time if you do not see the card again.
+      </p>
+      <p class="is-size-7 has-text-grey" data-testid="app-version">Cardio {{ version }}</p>
+    </section>
+
     <section class="block" aria-labelledby="settings-theme">
       <h2 id="settings-theme" class="title is-6">Theme</h2>
       <div class="buttons has-addons" role="group" aria-labelledby="settings-theme">
@@ -113,11 +123,22 @@ async function onConfirmed(): Promise<void> {
       </p>
     </section>
 
+    <section class="block" aria-labelledby="settings-storage">
+      <h2 id="settings-storage" class="title is-6">Storage</h2>
+      <p class="is-size-7" data-testid="storage-status">
+        <template v-if="persistent === null">Checking with the browser…</template>
+        <template v-else-if="persistent">
+          Storage is persistent: this browser has agreed to keep your cards until you delete them.
+        </template>
+        <template v-else>
+          Your browser may delete your cards if it runs short of space. Be sure to keep an exported
+          backup.
+        </template>
+      </p>
+    </section>
+
     <section class="block" aria-labelledby="settings-backup">
       <h2 id="settings-backup" class="title is-6">Backup</h2>
-      <p class="is-size-7 has-text-grey mb-2">
-        Everything lives in this browser. A backup is the only copy that survives clearing it.
-      </p>
       <button
         type="button"
         class="button is-primary cardio-action"
@@ -125,7 +146,7 @@ async function onConfirmed(): Promise<void> {
         data-testid="export-backup"
         @click="backup.exportBackup()"
       >
-        Export backup
+        Create backup
       </button>
 
       <div class="field mt-4">
@@ -201,20 +222,6 @@ async function onConfirmed(): Promise<void> {
       </p>
     </section>
 
-    <section class="block" aria-labelledby="settings-storage">
-      <h2 id="settings-storage" class="title is-6">Storage</h2>
-      <p class="is-size-7" data-testid="storage-status">
-        <template v-if="persistent === null">Checking with the browser…</template>
-        <template v-else-if="persistent">
-          Storage is persistent: this browser has agreed to keep your cards until you delete them.
-        </template>
-        <template v-else>
-          Storage is best effort: this browser may be cleared if it runs short of space, and your
-          cards would go with it. Keep an exported backup.
-        </template>
-      </p>
-    </section>
-
     <section v-if="install.hint" class="block" aria-labelledby="settings-install">
       <h2 id="settings-install" class="title is-6">Install</h2>
       <p class="is-size-7" data-testid="install-hint">
@@ -229,13 +236,36 @@ async function onConfirmed(): Promise<void> {
       </p>
     </section>
 
-    <section class="block" aria-labelledby="settings-about">
-      <h2 id="settings-about" class="title is-6">About</h2>
-      <p class="is-size-7 has-text-grey" data-testid="app-version">Cardio {{ version }}</p>
-    </section>
-
     <section class="block" aria-labelledby="settings-danger">
-      <h2 id="settings-danger" class="title is-6 has-text-danger">Danger zone</h2>
+      <h2 id="settings-danger" class="title is-6">
+        <span class="icon-text is-align-items-center">
+          <span>Danger zone</span>
+          <span class="icon is-small">
+            <!-- Feather "alert-triangle" (feathericons.com), MIT. Inlined for
+                 the same reason as the nav's gear: one icon, and nothing may
+                 reach the network. -->
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+              />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+          </span>
+        </span>
+      </h2>
       <p class="is-size-7 has-text-grey mb-2" data-testid="danger-summary">
         {{ storedPrompt(totals) }}
       </p>
@@ -252,7 +282,6 @@ async function onConfirmed(): Promise<void> {
         Everything was deleted. Unsorted is waiting for your first deck.
       </p>
     </section>
-
     <TypedConfirmDialog
       v-if="confirming === 'replace'"
       title="Replace everything?"

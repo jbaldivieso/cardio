@@ -117,6 +117,25 @@ describe('SettingsView', () => {
     await flushPromises()
   }
 
+  describe('the shape of the screen', () => {
+    it('runs from what the app is down to what cannot be undone', async () => {
+      // Storage sits immediately above Backup because it is the reason to make
+      // one; that adjacency is what lets Backup carry no preamble of its own.
+      stubStorage(false, IPHONE, 5)
+
+      const wrapper = await mountView()
+
+      expect(wrapper.findAll('h2').map((heading) => heading.text())).toEqual([
+        'About',
+        'Theme',
+        'Storage',
+        'Backup',
+        'Install',
+        'Danger zone',
+      ])
+    })
+  })
+
   describe('theme', () => {
     it('opens on the theme in use', async () => {
       localStorage.setItem(THEME_KEY, 'dark')
@@ -145,6 +164,12 @@ describe('SettingsView', () => {
   })
 
   describe('export', () => {
+    it('names the button for what it makes, not for the file format', async () => {
+      const wrapper = await mountView()
+
+      expect(wrapper.get('[data-testid="export-backup"]').text()).toBe('Create backup')
+    })
+
     it('downloads a dated backup file (§10)', async () => {
       const clicked = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockReturnValue(undefined)
       vi.setSystemTime(new Date(2026, 7, 26, 9, 0))
@@ -310,7 +335,9 @@ describe('SettingsView', () => {
     it('warns that the data can be evicted when it has not', async () => {
       const wrapper = await mountView()
 
-      expect(wrapper.get('[data-testid="storage-status"]').text()).toContain('may be cleared')
+      expect(wrapper.get('[data-testid="storage-status"]').text()).toContain(
+        'may delete your cards',
+      )
     })
   })
 
@@ -360,6 +387,12 @@ describe('SettingsView', () => {
       expect(wrapper.find('[data-testid="install-hint"]').exists()).toBe(false)
     })
 
+    it('says in plain words how a card becomes mastered', async () => {
+      const wrapper = await mountView()
+
+      expect(wrapper.get('[data-testid="about-mastery"]').text()).toContain('mastered')
+    })
+
     it('shows the version it is running', async () => {
       const wrapper = await mountView()
 
@@ -368,6 +401,16 @@ describe('SettingsView', () => {
   })
 
   describe('the danger zone', () => {
+    it('warns with an icon rather than with text a screen reader cannot see', async () => {
+      const wrapper = await mountView()
+
+      const heading = wrapper.get('#settings-danger')
+      expect(heading.find('svg').exists()).toBe(true)
+      // The icon carries no accessible name of its own. It is a second look at
+      // a heading that already says everything, not a second thing to read.
+      expect(heading.text()).toBe('Danger zone')
+    })
+
     it('holds the delete behind a typed confirmation', async () => {
       const folder = await repositories.folders.create('Spanish', 1000)
       const wrapper = await mountView()

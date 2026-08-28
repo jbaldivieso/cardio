@@ -71,7 +71,7 @@ async function done(): Promise<void> {
       </ul>
     </template>
     <p v-else class="notification is-success is-light" data-testid="summary-clean">
-      Nothing missed. Every card in this session was a get.
+      You got them all!
     </p>
 
     <div class="is-flex is-flex-wrap-wrap is-gap-2">
