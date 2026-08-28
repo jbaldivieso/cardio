@@ -54,8 +54,9 @@ table, one write per answer, no join.
 `404.html` copy trick works but costs a redirect and breaks deep-link tests subtly.
 Hash routing is simply immune.
 
-**Consequence.** URLs look like `/cardio/#/decks/abc`. Acceptable for a personal PWA
-launched from the home screen.
+**Consequence.** URLs look like `#/decks/abc` under the site root. Acceptable for a
+personal PWA launched from the home screen. The base moved from `/cardio/` to `/` with
+the custom domain (ADR-046); the hash part is unaffected.
 
 ## ADR-005 — Dexie over raw `idb`
 
@@ -755,3 +756,28 @@ them:
   user agent has been frozen at `10_15_7` for years. A Safari 17 on Ventura is therefore
   told about a menu item it does not have. Sonoma is three years old, so this is the
   narrow end of a narrow branch, but it is not nothing.
+
+## ADR-046 — The site lives at `cardio.baldivieso.com`, so the base is `/`
+
+**Decision.** Serve the app from the custom domain `cardio.baldivieso.com` rather than
+`jbaldivieso.github.io/cardio/`. `public/CNAME` carries the domain into every build's
+artifact; Vite's `base`, and with it the manifest `id`, `scope` and `start_url`, become
+`/`.
+
+**Why.** A custom domain is served from its own root — GitHub Pages does not keep the
+project name in the path — so a `base` of `/cardio/` would ask for `/cardio/assets/…`
+on a host that has no such directory and the app shell would not load at all. Keeping
+the CNAME in `public/` rather than only in the repository's Pages settings means the
+domain is version-controlled and survives a re-deploy from a clean checkout.
+
+**Consequence.** The origin changed, and IndexedDB, `localStorage` and the service worker
+are all per-origin. An install or a database on `jbaldivieso.github.io` does not carry
+over: that data is reachable only through settings' export, and only from a browser that
+still has the old origin cached, since GitHub redirects the `github.io` URL to the custom
+domain. For a single-user app with a backup format this is a one-time export/import, not
+a migration.
+
+DNS is the part this repository cannot assert: a `CNAME` record for `cardio` pointing at
+`jbaldivieso.github.io`, and **Settings → Pages → Custom domain** set to match, with
+_Enforce HTTPS_ on once the certificate is issued. Until both exist the deploy succeeds
+and the domain does not resolve.

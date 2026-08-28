@@ -3,7 +3,7 @@
 An offline-first flash-card PWA. Markdown cards, organised into decks and folders, with
 a quiz that picks what to show you based on how well you actually know each card.
 
-Live at **https://jbaldivieso.github.io/cardio/** — installable, and fully usable
+Live at **https://cardio.baldivieso.com/** — installable, and fully usable
 offline. All data stays on the device in IndexedDB; there is no server and no account.
 
 ## Why the quiz is the point
@@ -18,7 +18,7 @@ The details, including exact test vectors, are in [`docs/spec.md`](docs/spec.md)
 
 ```bash
 npm ci
-npm run dev          # http://localhost:5173/cardio/
+npm run dev          # http://localhost:5173/
 ```
 
 ```bash
@@ -57,8 +57,13 @@ docs/            spec, decisions, original brief
 
 Pushing to `main` builds and publishes to GitHub Pages via
 `.github/workflows/deploy.yml`. One-time setup: **Settings → Pages → Build and
-deployment → Source: GitHub Actions**. The Vite `base` and the PWA manifest `scope`
-are both `/cardio/`; changing the repository name means changing both.
+deployment → Source: GitHub Actions**.
+
+The site is served from the custom domain **cardio.baldivieso.com**, declared by
+`public/CNAME` and set under **Settings → Pages → Custom domain**, with a DNS `CNAME`
+record pointing `cardio` at `jbaldivieso.github.io`. Because the domain root is the site
+root, the Vite `base` and the PWA manifest `scope` are both `/`; dropping the custom
+domain means setting both back to `/cardio/`.
 
 CI (`.github/workflows/ci.yml`) runs lint, format check, typecheck, unit tests with
 coverage, the production build, and Playwright on every pull request.

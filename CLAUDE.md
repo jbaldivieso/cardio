@@ -1,7 +1,7 @@
 # Cardio — working notes for Claude
 
 Offline-first flash-card PWA. Vue 3 + TypeScript + Vite, Bulma for CSS, IndexedDB via
-Dexie, deployed to GitHub Pages at `https://jbaldivieso.github.io/cardio/`. No server,
+Dexie, deployed to GitHub Pages at `https://cardio.baldivieso.com/`. No server,
 no accounts, no network calls at runtime.
 
 **Read before writing code:**
@@ -15,7 +15,7 @@ no accounts, no network calls at runtime.
 
 | Command                     | Purpose                                                                |
 | --------------------------- | ---------------------------------------------------------------------- |
-| `npm run dev`               | Dev server on `http://localhost:5173/cardio/`                          |
+| `npm run dev`               | Dev server on `http://localhost:5173/`                                 |
 | `npm test`                  | Unit + component tests once                                            |
 | `npm run test:watch`        | The TDD loop                                                           |
 | `npm run test:coverage`     | Coverage report                                                        |
@@ -103,11 +103,12 @@ store privates.
 
 ## Gotchas
 
-- **Base path is `/cardio/`.** The dev server and preview serve the app at
-  `/cardio/`, not `/`. Playwright's `baseURL` already accounts for it; use relative
-  `page.goto('./')`.
-- **Hash router.** Deep links look like `/cardio/#/decks/:id`. URL assertions in tests
-  must include the `#`.
+- **Base path is `/`.** The custom domain `cardio.baldivieso.com` serves the app from
+  the domain root (ADR-046), so `base` is `/` everywhere — dev, preview and production.
+  Keep `page.goto('./')` relative anyway; Playwright's `baseURL` is the one place the
+  origin is written down.
+- **Hash router.** Deep links look like `/#/decks/:id`. URL assertions in tests must
+  include the `#`.
 - **`npm run e2e` builds first** (its `webServer` runs `npm run build && npm run
 preview`), so it is slow — a minute or two. Run unit tests during development and
   e2e before pushing.

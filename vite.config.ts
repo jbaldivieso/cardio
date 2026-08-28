@@ -4,8 +4,9 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// Deployed to https://jbaldivieso.github.io/cardio/ — every asset path is base-relative.
-const BASE = '/cardio/'
+// Deployed to https://cardio.baldivieso.com/ — a custom domain (public/CNAME), so the
+// site is served from the domain root, not from a /cardio/ project subpath.
+const BASE = '/'
 
 // The settings screen shows the app version (§7.8). package.json is the one
 // place it is written down; the build stamps it in so nothing can drift.

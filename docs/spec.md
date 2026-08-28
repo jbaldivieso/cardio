@@ -17,7 +17,8 @@ which cards a future quiz selects.
 
 - Single user, no accounts, no server. All data is in IndexedDB on the device.
 - No network requests after the app shell loads.
-- Deployed as a static SPA to GitHub Pages: `https://jbaldivieso.github.io/cardio/`.
+- Deployed as a static SPA to GitHub Pages, on a custom domain:
+  `https://cardio.baldivieso.com/`.
 - Installable, and fully functional offline.
 
 ## 2. Scope
@@ -559,7 +560,7 @@ Configured in `vite.config.ts` (done): `registerType: 'autoUpdate'`, app-shell p
   all data intact.
 - Updates: the service worker updates in the background and applies on the next load.
   No update prompt in v1.
-- The manifest `scope` and `start_url` must remain `/cardio/`.
+- The manifest `scope` and `start_url` must remain the site root, `/` — see ADR-046.
 - Never add a runtime caching rule for a third-party origin; there are none.
 
 ## 13. Non-functional
