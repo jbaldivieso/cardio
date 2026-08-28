@@ -96,11 +96,15 @@ describe('MasteryBar', () => {
     )
   })
 
-  it('colours the learning segment with the Bulma warning background', () => {
+  // Chartreuse is the palette's one high-energy colour, and the part-way bar is
+  // where it earns its place: mastered green filling in behind a bright edge of
+  // what is still being learned. The class resolves `--cardio-accent`, which the
+  // theme swaps like any Bulma token (ADR-048).
+  it('colours the learning segment with the chartreuse accent', () => {
     const wrapper = mountBar(5, 3, 2)
 
     expect(wrapper.get('[data-testid="mastery-learning"]').classes()).toContain(
-      'has-background-warning',
+      'cardio-mastery-accent',
     )
   })
 

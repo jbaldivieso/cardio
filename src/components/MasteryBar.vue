@@ -15,7 +15,9 @@ const props = defineProps<{ summary: MasterySummary }>()
 
 const SEGMENTS = [
   { band: 'mastered', colour: 'has-background-success' },
-  { band: 'learning', colour: 'has-background-warning' },
+  // The palette's chartreuse accent (ADR-048), not a Bulma tag colour: the
+  // bright edge of what is still being learned, ahead of the mastered green.
+  { band: 'learning', colour: 'cardio-mastery-accent' },
   // The same neutral as the empty track: the untried share reads as the part
   // of the bar that has not been filled in yet.
   { band: 'new', colour: 'cardio-mastery-unfilled' },

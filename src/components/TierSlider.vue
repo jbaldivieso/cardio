@@ -70,5 +70,10 @@ function onInput(event: Event): void {
 .cardio-tier-slider {
   width: 100%;
   min-height: 44px;
+
+  /* The tier in force — thumb and the track behind it — in the palette's
+     chartreuse (ADR-048). `accent-color` is what a native range answers to, so
+     the browser keeps its own thumb, its focus ring and its platform sizing. */
+  accent-color: var(--cardio-accent);
 }
 </style>

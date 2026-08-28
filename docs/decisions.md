@@ -808,3 +808,95 @@ the flow §7.1's copy already described — decks live inside folders — and Un
 to the list the moment anything else does. A read that fails leaves the library looking
 empty, so the splash appears under the error banner; the banner is what explains it, and
 inviting a folder is still the right offer.
+
+## ADR-048 — Chartreuse marks what is in motion, not what is done
+
+**Decision.** `--cardio-accent`, the Grove palette's chartreuse (`#8cb43a` light,
+`#a9d14f` dark), is spent in exactly two places: the `learning` segment of
+`MasteryBar.vue`, via the shared `.cardio-mastery-accent` class in `main.scss`, and the
+tier in force on `TierSlider.vue`, via `accent-color` on the native range. `MasteryBadge`
+keeps `is-success` and `is-warning` and takes the new palette from Bulma's tokens
+untouched.
+
+**Why those two.** The accent is the only high-energy colour in a palette that is
+otherwise olive, green and teal, so a third use would make it the theme rather than the
+spark. Both places it does land are the same idea: the part of the screen that is
+currently moving. On the bar, mastered green fills in from the left and chartreuse is the
+live edge in front of it; on the slider, it is the one tier out of seven that the next
+quiz will actually use. What is finished is green, what is untried is grey, and the
+bright colour is reserved for the boundary between them.
+
+**Why `accent-color` on the slider.** It is the one property a native range answers to
+without being rebuilt, so the browser keeps its own thumb geometry, its focus ring and
+its platform hit area — the 44px target of spec §7 stays the browser's business.
+Hand-drawing `::-webkit-slider-thumb` and `::-moz-range-thumb` would have bought a
+matching filled track on the left of the thumb at the cost of owning focus styling in two
+vendor dialects, which is not a trade this slider needs.
+
+**Alternatives.** Leaving `learning` on `has-background-warning` — rejected, but not on
+contrast grounds: measured, the boundary between the learning and mastered segments is
+2.07:1 in light and 1.42:1 in dark for _both_ colours, identically. The palette's amber
+and its chartreuse happen to sit at the same distance from the green. The reason is
+meaning: warning is the colour Bulma gives a caution, and a card halfway to mastered is
+not a fault. Using the accent on the mastered segment instead — rejected: mastery is the
+resting state, and the eye should land on it last.
+
+**Consequence.** The dark theme's 1.42:1 across the mastered/learning boundary means
+those two segments are separated by hue and saturation, not lightness, and a viewer who
+cannot tell chartreuse from green sees one bar of one colour. That is the condition
+ADR-044 already accepted for this bar: the headline beside it and the track's own
+`aria-label` state every number in words, so the bar is a redundant aid. Against the page
+itself the accent is legible in both themes — 2.41:1 on the light `.box`, 9.56:1 on the
+dark one.
+
+Warning now has exactly one consumer left, the `learning` badge in `MasteryBadge.vue`.
+Anything that changes `--cardio-accent` has to be looked at in both themes with a
+part-way deck on screen, and the slider checked in a browser that draws its own thumb.
+
+---
+
+## ADR-049 — Nebula Sans, four faces, self-hosted
+
+**Decision.** The app sets `$family-primary` to `'Nebula Sans', system-ui, sans-serif`
+and ships the typeface itself: four `@font-face` rules in `src/styles/main.scss` pointing
+at woff2 files from `@fontsource/nebula-sans`, a new runtime dependency. The faces are
+400 normal, 400 italic, 600 normal and 700 normal. Bulma's two remaining weight tokens
+are pinned onto them — `--bulma-weight-medium: 600` (buttons) and
+`--bulma-weight-extrabold: 700` (titles) — because Nebula Sans has no 500 or 800.
+
+**Why self-hosted.** Spec §13 allows no fetch to any origin at runtime, which rules out
+Google Fonts and every other CDN. Fontsource is a build-time package: Vite hashes the
+woff2 files into `dist/assets/`, the existing `globPatterns` sweep already matches
+`woff2`, and the service worker precaches all four. After the first load the typeface is
+as offline as the rest of the app. Nebula Sans is SIL OFL 1.1, so redistributing it
+inside our own bundle is exactly what the licence is for; the licence text travels with
+the package.
+
+**Why hand-written `@font-face` rather than Fontsource's stylesheets.** Importing
+`@fontsource/nebula-sans/400.css` and friends would have been one line each, but every
+one of those stylesheets lists a `.woff` beside its `.woff2`, and Vite emits both. That
+is a second copy of all four faces — 388 KB — sitting in `dist/` that nothing which can
+run a service worker is old enough to ask for, and that `globPatterns` would not
+precache anyway. Four hand-written rules cost eight lines and ship only what is used.
+
+**Why four faces.** Each is about 70 KB and every one is precached, so the count is a
+real cost, not a stylesheet detail; the four are the ones the app actually renders.
+Bulma's scale asked for six. 500 (buttons) and 800 (titles) have no face in this family
+at all, and left alone the browser's font-matching would have resolved them one way in
+Nebula Sans and another way in the `system-ui` fallback, so a button would change weight
+the moment the font finished loading. Pinning both to shipped faces makes the fallback
+render at the same weights as the real thing. 300 and 900 are not referenced anywhere in
+the app.
+
+**Alternatives.** The full Fontsource family, six weights and their italics — rejected:
+1.7 MB of precache for twelve faces to render four. A variable font would have collapsed
+the whole range into one file, but Nebula Sans does not publish one. Subsetting the woff2
+down from its ~70 KB latin coverage — rejected for now: it needs a build-time subsetter
+and a rule about which glyphs a flash card may contain, and card text is user-authored.
+
+**Consequence.** The precache grew from about 1.1 MB to 1.39 MB, a one-time cost on
+install. Bold-italic together — `***like this***` in a card — has no face of its own and
+gets the 400 italic thickened by the browser. `--bulma-weight-extrabold` no longer means
+800; anything that later wants a heavier title has to add the 900 face rather than change
+that number. Code blocks keep Bulma's monospace stack, which is system fonts and reaches
+no network; Nebula Sans has no mono companion.

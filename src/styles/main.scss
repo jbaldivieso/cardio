@@ -1,9 +1,121 @@
 // Bulma 1.x, imported as Sass so theme variables can be overridden here rather
 // than fought with in component styles.
-@use 'bulma/sass';
+//
+// Palette: "Grove" — olive → chartreuse → teal. The primary and the `mastered`
+// green are deliberately the same hue, so progress reads as the app filling in.
+// Chartreuse is the only high-energy colour and is used sparingly, as an accent
+// on the mastery bar and the active quiz tier.
+@use 'bulma/sass' with (
+  $family-primary: (
+    'Nebula Sans',
+    system-ui,
+    sans-serif,
+  ),
+  $primary: #3e7c4f,
+  $success: #3e7c4f,
+  $warning: #c9a227,
+  $danger: #c2532f,
+  $info: #1e8c7a,
+  $link: #1e8c7a
+);
+
+// Nebula Sans (https://www.nebulasans.com), SIL OFL 1.1, self-hosted out of
+// `@fontsource/nebula-sans` and precached with the rest of the app — ADR-049.
+//
+// Four faces, declared by hand rather than by importing Fontsource's own
+// stylesheets, because those also list a `.woff` beside every `.woff2` and Vite
+// emits both. Nothing that can run a service worker needs the `.woff`.
+//
+// The weights are the ones this app actually renders: 400 body, 600 for
+// `<strong>` and buttons, 700 for titles, 400 italic for markdown emphasis.
+// A card that nests bold inside italic gets the 400 italic face thickened by
+// the browser, which is close enough for the one place it can occur.
+@font-face {
+  font-family: 'Nebula Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('@fontsource/nebula-sans/files/nebula-sans-latin-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Nebula Sans';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('@fontsource/nebula-sans/files/nebula-sans-latin-400-italic.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Nebula Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('@fontsource/nebula-sans/files/nebula-sans-latin-600-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Nebula Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('@fontsource/nebula-sans/files/nebula-sans-latin-700-normal.woff2') format('woff2');
+}
+
+// Bulma asks for two weights Nebula Sans has no face for: 500 on buttons and
+// 800 on titles. Left alone the browser would resolve each by its own matching
+// rules — and resolve them differently again in the fallback stack, so a button
+// would change weight when the font finished loading. Pinned to the faces that
+// ship instead.
+:root {
+  --bulma-weight-medium: 600;
+  --bulma-weight-extrabold: 700;
+}
 
 :root {
   --cardio-flip-duration: 220ms;
+
+  // The spark. Never a background for text; used as a fill on the mastery bar
+  // and to mark the selected tier on the slider.
+  --cardio-accent: #8cb43a;
+}
+
+// Light: warm-leaning off-white page, plain white surfaces, near-black green ink.
+[data-theme='light'],
+.theme-light,
+:root {
+  --bulma-scheme-main: #ffffff;
+  --bulma-background: #f5f7f1;
+  --bulma-body-background-color: #f5f7f1;
+  --bulma-border: #e3e8dc;
+  --bulma-border-weak: #eaeee4;
+  --bulma-text-strong: #16201a;
+  --bulma-text: #2c352d;
+  --bulma-text-weak: #6b7566;
+}
+
+[data-theme='dark'],
+.theme-dark {
+  --cardio-accent: #a9d14f;
+
+  --bulma-scheme-main: #171f19;
+  --bulma-background: #0d130f;
+  --bulma-body-background-color: #0d130f;
+  --bulma-border: #263026;
+  --bulma-border-weak: #202a21;
+  --bulma-text-strong: #eff3ec;
+  --bulma-text: #d3dbd0;
+  --bulma-text-weak: #8d9a8c;
+
+  // Bulma's derived dark variants of a mid-tone green sit too close to the
+  // page; these are the values the palette was designed at.
+  --bulma-primary: #63b571;
+  --bulma-success: #63b571;
+  --bulma-success-invert: #0a2110;
+  --bulma-warning: #dcc24a;
+  --bulma-danger: #f2957a;
+  --bulma-info: #4cc2a8;
+  --bulma-link: #4cc2a8;
 }
 
 // The quiz screen is the only place with hand-written layout; everything else
@@ -57,6 +169,12 @@
 // it a few dozen pixels wide on a phone. Bulma has no flex-basis helper.
 .cardio-row-full {
   flex-basis: 100%;
+}
+
+// The mastered portion of a mastery bar is the primary green; the segment still
+// in learning takes the accent, which is what gives a part-way bar its lift.
+.cardio-mastery-accent {
+  background-color: var(--cardio-accent);
 }
 
 // A row that opens something on tap says so under the pointer. Keyboard users
