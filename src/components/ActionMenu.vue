@@ -124,9 +124,24 @@ onBeforeUnmount(() => {
 <style scoped>
 /* Bulma's dropdown is `display: inline-flex` and aligns its trigger to the top
    of the line; beside a row's title it should sit on the text's own baseline
-   band, which is what centring the trigger inside the line box gives. */
+   band, which is what centring the trigger inside the line box gives.
+
+   `position: static` takes the trigger out of the positioning so the panel below
+   is measured against the row's name column instead. Bulma would otherwise pin
+   the panel's left edge to the trigger, which sits wherever the name happens to
+   end — far enough right, on a phone, to push a 12 rem panel off the screen
+   (ADR-053). */
 .dropdown {
+  position: static;
   vertical-align: middle;
+}
+
+/* Right edge of the name column, whatever the name's length: the one horizontal
+   anchor that is on screen at every width. `.cardio-row-main` supplies the
+   containing block. */
+.dropdown-menu {
+  left: auto;
+  right: 0;
 }
 
 /* Spec §7's 44 px target, applied here rather than by every row that fills the

@@ -934,6 +934,16 @@ nowhere to go, so it is left out and counted, and its cards go with it — the t
 Inventing a folder to hold the orphans would have put back exactly the auto-created
 folder this ADR removes.
 
+**A partial file loses more than it used to.** `validateBackup` is a pure function over
+the file, so "missing folder" means missing _from the file_, not from the library the
+rows are about to land in. A merge whose file carries a deck but not its folder therefore
+drops that deck even when the live library has a folder of that id; before this change
+the deck survived, in the wrong folder. An export always carries every folder, so only a
+hand-edited or truncated file can reach this, and the import preview names the count
+before anything is written — but it is a loss where there used to be a repair, and the
+alternative (validating against the library) would put a database read inside a domain
+function.
+
 **Consequence.** A library made before this change still has its seeded folder, named
 Unsorted or whatever it was renamed to. It is an ordinary folder now: it can be deleted,
 and while it is there the library is not empty, so the splash stays down. Nothing
@@ -1008,3 +1018,33 @@ for. The 44 px target of §7 is applied once, on `.dropdown-item` inside the pan
 keyboard shortcut — has to open the menu first. Playwright treats `aria-disabled` as
 disabled for actionability, so an e2e test cannot click the gated Move to prove it does
 nothing; the component tests cover that path.
+
+---
+
+## ADR-053 — A row menu's panel is measured against the row, not its trigger
+
+**Decision.** `ActionMenu`'s `.dropdown` is `position: static` and its `.dropdown-menu`
+is `left: auto; right: 0`, which pins an open panel to the right edge of
+`.cardio-row-main` — the row's name column, made `position: relative` for this. The panel
+opens below that column rather than directly below the trigger.
+
+**Why.** ADR-052 puts the trigger immediately after the row's name, so its left edge
+moves with the name's length, and Bulma anchors an open panel to that left edge with a
+`min-width` of 12 rem. On a 393 px viewport a name of a dozen or so characters put the
+panel's right edge past the screen: measured at 430 px for a folder called "Kitchen
+Vocabulary" and 490 px for a name half again as long, taking `document.scrollWidth` with
+it. Part of the menu was unreachable and the page scrolled sideways.
+
+**Why not `is-right`.** Bulma's own right-alignment pins the panel to the _trigger's_
+right edge, which fails at the other end of the same range: a short name leaves the
+trigger near the left margin and a 12 rem panel hanging off that side instead. The row's
+name column is the one anchor that is on screen at every name length and every width.
+
+**Consequence.** The panel drops below the name and its count rather than from the
+trigger itself, which reads as attached to the row and has the incidental benefit of not
+covering the count. `ActionMenu` now depends on its host being a positioned box:
+`.cardio-row-main` carries a comment saying so, and a row that uses the menu without it
+would see the panel escape to the next positioned ancestor. `e2e/row-menu.spec.ts` holds
+the regression at both viewports, with the short and the long name as the two ends of
+the range; it is an e2e test because the panel's position comes from Bulma's stylesheet
+and the width of a name in the app's own font, which jsdom has neither of.

@@ -150,10 +150,13 @@
 }
 
 // A long folder or deck name wraps instead of pushing its row's actions off the
-// side of a 360 px screen.
+// side of a 360 px screen. It is also the box an open `ActionMenu` panel is
+// measured against: the panel pins to this column's right edge, so it stays on
+// screen wherever in the name the trigger ends up (ADR-053).
 .cardio-row-main {
   min-width: 0;
   overflow-wrap: anywhere;
+  position: relative;
 }
 
 // A card front on the deck screen is a preview, not the card (§7.3).
