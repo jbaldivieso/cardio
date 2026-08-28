@@ -410,13 +410,15 @@ Breadcrumb `Folders / <name>`. Header actions: **New deck** (modal) and
 Each deck row: name, card count, mastery bar, and a **Quiz** quickstart button
 (`direction: front`, `tier: 4`, `size: 20`) that goes straight to `quiz-run`.
 Row overflow: rename, move to another folder (modal with folder select), delete.
-Quickstart is disabled with a tooltip when the deck has no cards. Empty state invites
-creating a deck.
+An action with nothing to act on is disabled with a tooltip saying why: quickstart and
+the header's **Custom quiz** when there are no cards to draw on, and **Move** when
+there is no other folder to move the deck to. Empty state invites creating a deck.
 
 ### 7.3 Deck — cards
 
 Breadcrumb `Folders / <folder> / <deck>`. Header actions: **New card**, **Bulk add**
-(§9), **Quiz**. Each card row shows the rendered front (clamped to ~2 lines), a mastery
+(§9), **Quiz** and **Custom quiz** — the last two disabled with a tooltip while the deck
+has no cards. Each card row shows the rendered front (clamped to ~2 lines), a mastery
 badge (`new` / `NN%`), and edit/delete actions. Tapping a row opens the editor.
 
 ### 7.4 Card editor

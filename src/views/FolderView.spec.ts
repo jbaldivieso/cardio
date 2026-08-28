@@ -159,6 +159,27 @@ describe('FolderView', () => {
     await vi.waitFor(() => expect(rows(wrapper)[0].text()).toContain('Verbs'))
   })
 
+  it('will not move a deck when there is no other folder to move it to', async () => {
+    await repositories.decks.create(homeId, 'Verbs', 1000)
+    const wrapper = await mountView(homeId)
+
+    const button = rows(wrapper)[0].get('[data-testid="deck-move"]')
+    await button.trigger('click')
+    await flushPromises()
+
+    expect(button.attributes('aria-disabled')).toBe('true')
+    expect(wrapper.find('[data-testid="move-dialog"]').exists()).toBe(false)
+  })
+
+  it('says why a deck cannot be moved, where a screen reader will find it', async () => {
+    await repositories.decks.create(homeId, 'Verbs', 1000)
+    const wrapper = await mountView(homeId)
+
+    const button = rows(wrapper)[0].get('[data-testid="deck-move"]')
+    const reason = wrapper.get(`#${button.attributes('aria-describedby')}`)
+    expect(reason.text()).toContain('no other folder')
+  })
+
   it('moves a deck out of the folder through the move dialog', async () => {
     const other = await repositories.folders.create('Spanish', 1000)
     await repositories.decks.create(homeId, 'Verbs', 1000)
@@ -277,6 +298,28 @@ describe('FolderView', () => {
         name: 'quiz-configure',
         query: { folder: folderId },
       })
+    })
+
+    it('offers no custom quiz over a folder with no cards in it', async () => {
+      const { folderId } = await folderWithDeck(0)
+      const wrapper = await mountView(folderId)
+
+      const action = wrapper.get('[data-testid="folder-custom-quiz"]')
+      expect(action.attributes('aria-disabled')).toBe('true')
+      // Nothing to configure a quiz over, so it is not a link to anywhere either.
+      const links = wrapper.findAllComponents(RouterLinkStub)
+      expect(links.some((link) => link.attributes('data-testid') === 'folder-custom-quiz')).toBe(
+        false,
+      )
+    })
+
+    it('says why a folder with no cards has no custom quiz either', async () => {
+      const { folderId } = await folderWithDeck(0)
+      const wrapper = await mountView(folderId)
+
+      const action = wrapper.get('[data-testid="folder-custom-quiz"]')
+      const reason = wrapper.get(`#${action.attributes('aria-describedby')}`)
+      expect(reason.text()).toContain('no cards')
     })
   })
 })

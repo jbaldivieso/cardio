@@ -41,7 +41,11 @@ onMounted(() => {
   mastery.tick()
 })
 
-/** §7.3's Quiz action: the same one-tap quickstart as the deck's row (§6.1). */
+/**
+ * §7.3's Quiz action: the same one-tap quickstart as the deck's row (§6.1). An
+ * empty deck gates the custom quiz beside it too — there is nothing to configure
+ * a quiz over either way (ADR-051).
+ */
 const quizzable = computed(() => cards.cards.length > 0)
 
 async function quizDeck(): Promise<void> {
@@ -124,12 +128,24 @@ async function confirmDelete(): Promise<void> {
             Quiz
           </button>
           <RouterLink
+            v-if="quizzable"
             class="button cardio-action"
             :to="{ name: 'quiz-configure', query: { deck: deckId } }"
             data-testid="deck-custom-quiz"
           >
             Custom quiz
           </RouterLink>
+          <button
+            v-else
+            type="button"
+            class="button cardio-action is-static"
+            aria-disabled="true"
+            aria-describedby="deck-quiz-reason"
+            title="This deck has no cards to quiz yet."
+            data-testid="deck-custom-quiz"
+          >
+            Custom quiz
+          </button>
           <button
             type="button"
             class="button cardio-action"

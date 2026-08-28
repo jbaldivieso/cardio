@@ -192,6 +192,7 @@ describe('DeckView', () => {
     })
 
     it('offers a custom quiz over this deck', async () => {
+      await repositories.cards.create(deckId, { front: 'ser', back: 'to be' }, 1000)
       const wrapper = await mountView()
 
       const link = wrapper.getComponent<typeof RouterLinkStub>('[data-testid="deck-custom-quiz"]')
@@ -199,6 +200,15 @@ describe('DeckView', () => {
         name: 'quiz-configure',
         query: { deck: deckId },
       })
+    })
+
+    it('offers no custom quiz over a deck with no cards', async () => {
+      const wrapper = await mountView()
+
+      const action = wrapper.get('[data-testid="deck-custom-quiz"]')
+      expect(action.attributes('aria-disabled')).toBe('true')
+      const reason = wrapper.get(`#${action.attributes('aria-describedby')}`)
+      expect(reason.text()).toContain('no cards')
     })
   })
 })

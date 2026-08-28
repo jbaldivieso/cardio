@@ -12,6 +12,8 @@ import { countLabel } from '@/domain/prompts'
 const props = defineProps<{
   deck: Deck
   cardCount: number
+  /** False when this is the only folder there is, so there is nowhere to go. */
+  movable: boolean
   /** Undefined until the deck has been summarised (§5.5). */
   summary?: MasterySummary
 }>()
@@ -25,9 +27,14 @@ const emit = defineEmits<{ rename: []; move: []; delete: []; quiz: [] }>()
  */
 const quizzable = computed(() => props.cardCount > 0)
 const reasonId = useId()
+const moveReasonId = useId()
 
 function quiz(): void {
   if (quizzable.value) emit('quiz')
+}
+
+function move(): void {
+  if (props.movable) emit('move')
 }
 </script>
 
@@ -72,8 +79,12 @@ function quiz(): void {
       <button
         type="button"
         class="button is-ghost cardio-action"
+        :class="{ 'is-static': !movable }"
+        :aria-disabled="movable ? 'false' : 'true'"
+        :aria-describedby="movable ? undefined : moveReasonId"
+        :title="movable ? undefined : 'There is no other folder to move this deck to.'"
         data-testid="deck-move"
-        @click="$emit('move')"
+        @click="move"
       >
         Move
       </button>
@@ -86,6 +97,9 @@ function quiz(): void {
         Delete
       </button>
     </div>
+    <span v-if="!movable" :id="moveReasonId" class="is-sr-only">
+      There is no other folder to move this deck to. Create one first.
+    </span>
     <span :id="reasonId" class="is-sr-only">
       {{
         quizzable

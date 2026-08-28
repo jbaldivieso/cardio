@@ -941,3 +941,33 @@ migrates it away — deleting a folder someone may have filled is not a decision
 change gets to make for them. Replacing everything from a backup, and the danger zone's
 own **Delete all data**, now leave a genuinely empty library, so both land back on the
 splash; `deleteEverythingPrompt` no longer promises that Unsorted comes back.
+
+---
+
+## ADR-051 — A gated navigation is a disabled button, not a dead link
+
+**Extends ADR-031.** The **Custom quiz** actions on the folder and deck screens are
+`RouterLink`s while they lead somewhere and a `<button class="is-static"
+aria-disabled="true">` carrying the same label and `data-testid` when they do not. Both
+are gated on the cards below them: a folder with no cards anywhere in it, a deck with
+none of its own, has nothing for `quiz-configure` to configure. The deck row's **Move**
+is gated the same way when the library holds one folder, since a move needs somewhere to
+go; it stays a `<button>` in both states and only takes `is-static` and `aria-disabled`.
+
+**Why not keep the link and swallow the click.** A `RouterLink` renders its own `onClick`
+before any listener the caller adds, so a `@click.prevent` on it navigates first and
+prevents afterwards. `custom` with a slot would work, at the cost of hand-writing the
+anchor, its `href` and its focus behaviour. Swapping the element is one `v-if` and leaves
+the enabled path exactly as it was.
+
+**Why a button and not a link with no `href`.** An `<a>` without `href` is not focusable,
+which loses the ADR-031 property this is built on: a gated action keeps its place in the
+tab order so its `aria-describedby` reason can be heard. A `<button>` with `aria-disabled`
+and no handler keeps focus, and reads as a disabled control rather than as a link that
+goes nowhere.
+
+**Consequence.** The action changes role between its two states — link when live, button
+when not. Anything asserting on `RouterLink` for these actions has to seed a card first.
+Each gated action needs a reason element that exists whenever the gate is closed: the
+deck screen reuses `#deck-quiz-reason`, which already says the one thing there is to say,
+and the folder screen and deck row carry their own.
