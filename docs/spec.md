@@ -62,8 +62,7 @@ and raise it rather than expanding scope silently.
 
 ### 4.1 Entities
 
-All timestamps are **epoch milliseconds**. All IDs are `crypto.randomUUID()`, except
-the reserved `unsorted` folder.
+All timestamps are **epoch milliseconds**. All IDs are `crypto.randomUUID()`.
 
 ```ts
 interface Folder {
@@ -113,8 +112,9 @@ types; the db layer imports them, never the reverse.
   allowed (they are labels, not keys).
 - `Card.front`, `Card.back`: trimmed, non-empty, at most 4000 characters each.
 - Every `Deck.folderId` references an existing folder; every `Card.deckId` an existing deck.
-- The **Unsorted** folder (`id: 'unsorted'`) always exists. It can be renamed but not
-  deleted, and it is recreated by `seedDefaults()` if it is ever missing.
+- Every folder is one the user made. The app creates none of its own, and any folder
+  can be renamed or deleted (ADR-050). A library with no folders is the first-run state
+  §7.1 greets with the splash.
 - `updatedAt` tracks _content_ edits only. Recording a quiz answer changes `stats`
   (and `stats.lastSeenAt`) but must **not** bump `Card.updatedAt`, or every quiz would
   reorder every listing.
@@ -400,8 +400,8 @@ over bespoke CSS. Every element an e2e test touches carries a `data-testid`.
 List of folders, each row: name, deck count, card count, mastery bar (§7.6), link to the
 folder, and a **Quiz** action that starts a quickstart quiz across all decks in the
 folder. Header action: **New folder** (modal, name field). Row overflow menu: rename
-(modal), delete (confirm dialog, §4.4; hidden for Unsorted). Empty state invites
-creating a folder and explains that decks live inside folders.
+(modal), delete (confirm dialog, §4.4). Empty state invites creating a folder and
+explains that decks live inside folders.
 
 ### 7.2 Folder — decks
 
@@ -537,11 +537,13 @@ only on explicit confirm, in one transaction.
   included.
 - Import offers two modes: **Merge** — add rows whose IDs are absent, skip existing
   ones, and report both counts; **Replace everything** — behind a typed confirmation,
-  clear all three tables and load the file, then re-seed the Unsorted folder.
+  clear all three tables and load the file. Nothing is seeded afterwards; a file with
+  no folders leaves an empty library.
 - Validation before any write: `app === 'cardio'`, `schemaVersion === 1`, every array
   present, every row passing §4.2 validation, no card referencing a missing deck and no
-  deck a missing folder (orphans are re-homed: decks to Unsorted, cards are rejected
-  with a count). Failure means no write at all and a readable error.
+  deck a missing folder (orphans are rejected with a count: a deck whose folder is
+  absent, and any card left without a deck). Failure means no write at all and a
+  readable error.
 
 ## 11. Theme
 

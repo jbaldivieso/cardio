@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import { seedDefaults, UNSORTED_FOLDER_ID } from '@/db'
 import { serialise } from '@/domain/backup'
 import type { LibraryData } from '@/domain/backup'
 import { useBackupStore } from '@/stores/backup'
@@ -14,7 +13,6 @@ describe('backup store', () => {
 
   beforeEach(async () => {
     setActivePinia(createPinia())
-    await seedDefaults(test.db, 1000)
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:cardio')
     vi.spyOn(URL, 'revokeObjectURL').mockReturnValue(undefined)
   })
@@ -165,7 +163,7 @@ describe('backup store', () => {
 
       store.inspect(orphaned)
 
-      expect(store.pending?.repairs).toEqual({ rehomedDecks: 1, rejectedCards: 0 })
+      expect(store.pending?.repairs).toEqual({ rejectedDecks: 1, rejectedCards: 0 })
     })
 
     it('refuses a file that is not a Cardio backup, with a reason', () => {
@@ -271,8 +269,8 @@ describe('backup store', () => {
 
       const report = await store.merge()
 
-      // Four rows: the seeded folder, deck and card, plus Unsorted.
-      expect(report).toMatchObject({ added: 0, skipped: 4 })
+      // Three rows: the seeded folder, its deck and its card.
+      expect(report).toMatchObject({ added: 0, skipped: 3 })
       expect((await test.db.cards.get(stored.cards[0].id))?.front).toBe('hablar')
     })
 
@@ -329,13 +327,14 @@ describe('backup store', () => {
       expect(await test.db.cards.get('other-card')).toBeDefined()
     })
 
-    it('leaves the Unsorted folder in place (§4.2)', async () => {
+    it('leaves only the folders the file carried', async () => {
+      await seedLibrary()
       const store = useBackupStore()
       store.inspect(otherLibrary())
 
       await store.replace()
 
-      expect(await test.db.folders.get(UNSORTED_FOLDER_ID)).toBeDefined()
+      expect((await test.db.folders.toArray()).map((folder) => folder.id)).toEqual(['other-folder'])
     })
 
     it('drops the mastery summaries the screens were showing', async () => {
@@ -368,17 +367,15 @@ describe('backup store', () => {
       expect(await test.db.cards.count()).toBe(0)
     })
 
-    it('leaves a usable app behind, with Unsorted in it', async () => {
+    it('leaves no folder behind at all', async () => {
       await seedLibrary()
       const library = useLibraryStore()
       const store = useBackupStore()
 
       await store.deleteEverything()
 
-      expect((await test.db.folders.toArray()).map((folder) => folder.id)).toEqual([
-        UNSORTED_FOLDER_ID,
-      ])
-      expect(library.folders.map((folder) => folder.id)).toEqual([UNSORTED_FOLDER_ID])
+      expect(await test.db.folders.count()).toBe(0)
+      expect(library.folders).toEqual([])
     })
 
     it('drops the mastery summaries the screens were showing', async () => {

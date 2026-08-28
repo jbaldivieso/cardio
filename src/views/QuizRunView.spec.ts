@@ -4,7 +4,6 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import type { Router } from 'vue-router'
 import { flushPromises, mount } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
-import { seedDefaults, UNSORTED_FOLDER_ID } from '@/db'
 import type { Card } from '@/domain/models'
 import type { QuizConfig } from '@/domain/quiz'
 import { useQuizStore } from '@/stores/quiz'
@@ -13,7 +12,7 @@ import { useTestDatabase } from '@/test/repositories'
 import { routes } from '@/router'
 
 describe('QuizRunView', () => {
-  const test = useTestDatabase()
+  useTestDatabase()
   let router: Router
   let deckId: string
   let pool: Card[]
@@ -28,8 +27,8 @@ describe('QuizRunView', () => {
   beforeEach(async () => {
     setActivePinia(createPinia())
     router = createRouter({ history: createMemoryHistory(), routes })
-    await seedDefaults(test.db, 1000)
-    deckId = (await repositories.decks.create(UNSORTED_FOLDER_ID, 'Verbs', 1000)).id
+    const folder = await repositories.folders.create('Spanish', 1000)
+    deckId = (await repositories.decks.create(folder.id, 'Verbs', 1000)).id
     for (const face of ['uno', 'dos', 'tres']) {
       await repositories.cards.create(deckId, { front: `**${face}**`, back: `${face} back` }, 1000)
     }

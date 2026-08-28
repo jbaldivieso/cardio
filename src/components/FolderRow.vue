@@ -10,8 +10,6 @@ const props = defineProps<{
   folder: Folder
   deckCount: number
   cardCount: number
-  /** False for Unsorted, which cannot be deleted (§4.2). */
-  deletable: boolean
   /** Undefined until the folder's decks have been summarised (§5.5). */
   summary?: MasterySummary
 }>()
@@ -66,7 +64,6 @@ function quiz(): void {
         Rename
       </button>
       <button
-        v-if="deletable"
         type="button"
         class="button is-ghost has-text-danger cardio-action"
         data-testid="folder-delete"

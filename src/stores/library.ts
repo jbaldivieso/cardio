@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { UNSORTED_FOLDER_ID } from '@/db'
 import { byName } from '@/db/sorting'
 import type { Deck, Folder } from '@/domain/models'
 import { useErrorSurface } from '@/stores/errors'
@@ -40,14 +39,12 @@ export const useLibraryStore = defineStore('library', () => {
   })
 
   /**
-   * Nothing anyone made: no decks, so no cards, and no folder beyond the seeded
-   * Unsorted. The home screen greets this state instead of listing an empty
-   * Unsorted at someone who has never seen the app (ADR-047).
+   * Nothing anyone made. Folders are the only thing the app creates by itself —
+   * which is nothing at all (ADR-050) — and a deck needs one, so an empty folder
+   * list is an empty library. The home screen greets this state with the splash
+   * rather than a list of nothing (ADR-047).
    */
-  const isEmpty = computed(
-    () =>
-      decks.value.length === 0 && folders.value.every((folder) => folder.id === UNSORTED_FOLDER_ID),
-  )
+  const isEmpty = computed(() => folders.value.length === 0)
 
   function countsFor(folderId: string): FolderCounts {
     return folderCounts.value[folderId] ?? { decks: 0, cards: 0 }
@@ -67,11 +64,6 @@ export const useLibraryStore = defineStore('library', () => {
 
   function deck(id: string): Deck | undefined {
     return decks.value.find((entry) => entry.id === id)
-  }
-
-  /** Unsorted is the one folder the UI must not offer to delete (§4.2). */
-  function canDeleteFolder(folderId: string): boolean {
-    return folderId !== UNSORTED_FOLDER_ID
   }
 
   async function load(): Promise<void> {
@@ -171,7 +163,6 @@ export const useLibraryStore = defineStore('library', () => {
     countsFor,
     decksIn,
     cardCount,
-    canDeleteFolder,
     folder,
     deck,
     load,

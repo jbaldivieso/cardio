@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
-import { seedDefaults, UNSORTED_FOLDER_ID } from '@/db'
 import { serialise } from '@/domain/backup'
 import { useInstallStore } from '@/stores/install'
 import { THEME_KEY } from '@/stores/theme'
@@ -49,7 +48,6 @@ describe('SettingsView', () => {
     delete document.documentElement.dataset.theme
     stubMatchMedia()
     stubStorage(false)
-    await seedDefaults(test.db, 1000)
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:cardio')
     vi.spyOn(URL, 'revokeObjectURL').mockReturnValue(undefined)
   })
@@ -69,6 +67,12 @@ describe('SettingsView', () => {
   async function mountView(): Promise<VueWrapper> {
     const wrapper = mount(SettingsView, { attachTo: document.body })
     mounted.push(wrapper)
+    // The screen reads the library before it asks the browser about storage, and
+    // the first read opens the database, which fake-indexeddb resolves over
+    // several turns of the event loop rather than in microtasks alone.
+    await vi.waitUntil(
+      () => wrapper.get('[data-testid="storage-status"]').text() !== 'Checking with the browser…',
+    )
     await flushPromises()
     return wrapper
   }
@@ -246,7 +250,9 @@ describe('SettingsView', () => {
 
       await chooseFile(wrapper, orphaned)
 
-      expect(wrapper.get('[data-testid="import-repairs"]').text()).toContain('Unsorted')
+      expect(wrapper.get('[data-testid="import-repairs"]').text()).toContain(
+        '1 deck with no folder will be left out.',
+      )
     })
 
     it('forgets the file once it has been imported', async () => {
@@ -439,10 +445,10 @@ describe('SettingsView', () => {
 
       const wrapper = await mountView()
 
-      expect(wrapper.get('[data-testid="danger-summary"]').text()).toContain('2 folders')
+      expect(wrapper.get('[data-testid="danger-summary"]').text()).toContain('1 folder')
     })
 
-    it('leaves a usable empty app once the confirmation is typed', async () => {
+    it('leaves an empty library once the confirmation is typed', async () => {
       await repositories.folders.create('Spanish', 1000)
       const wrapper = await mountView()
       await wrapper.get('[data-testid="delete-all"]').trigger('click')
@@ -451,10 +457,10 @@ describe('SettingsView', () => {
       await wrapper.get('[data-testid="typed-confirm-accept"]').trigger('click')
       await shown(wrapper, 'delete-report')
 
-      expect((await test.db.folders.toArray()).map((folder) => folder.id)).toEqual([
-        UNSORTED_FOLDER_ID,
-      ])
-      expect(wrapper.get('[data-testid="delete-report"]').text()).toContain('deleted')
+      expect(await test.db.folders.count()).toBe(0)
+      expect(wrapper.get('[data-testid="delete-report"]').text()).toBe(
+        'Everything was deleted. Create a folder to start again.',
+      )
     })
   })
 })

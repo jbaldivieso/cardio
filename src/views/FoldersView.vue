@@ -116,7 +116,6 @@ async function confirmDelete(): Promise<void> {
         :folder="folder"
         :deck-count="library.countsFor(folder.id).decks"
         :card-count="library.countsFor(folder.id).cards"
-        :deletable="library.canDeleteFolder(folder.id)"
         :summary="mastery.folderSummary(folder.id)"
         @quiz="quizFolder(folder.id)"
         @rename="openDialog({ kind: 'rename', folder })"

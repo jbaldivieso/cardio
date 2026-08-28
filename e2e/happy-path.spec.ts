@@ -49,9 +49,8 @@ test('creates a library, quizzes a deck and sees its mastery move', async ({ pag
     await page.getByTestId('name-input').fill('Spanish')
     await page.getByTestId('name-save').click()
     await expect(page.getByRole('link', { name: 'Spanish' })).toBeVisible()
-    // The splash gives way to the list, which now holds Spanish and the
-    // seeded Unsorted the splash was covering.
-    await expect(page.getByTestId('folder-row')).toHaveCount(2)
+    // The splash gives way to the list, which holds the one folder there is.
+    await expect(page.getByTestId('folder-row')).toHaveCount(1)
   })
 
   await test.step('creates the deck Verbs inside it', async () => {

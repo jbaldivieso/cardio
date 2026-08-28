@@ -526,6 +526,8 @@ the file is still re-homed.
 
 ## ADR-035 — The reserved Unsorted id belongs to the domain
 
+**Retired by ADR-050**, which removed the reserved folder and the constant with it.
+
 **Decision.** `UNSORTED_FOLDER_ID` moved from `src/db/index.ts` to `src/domain/models.ts`.
 `src/db` re-exports it, so every existing import still reads `from '@/db'`.
 `UNSORTED_FOLDER_NAME` stayed in `src/db`.
@@ -900,3 +902,42 @@ gets the 400 italic thickened by the browser. `--bulma-weight-extrabold` no long
 800; anything that later wants a heavier title has to add the 900 face rather than change
 that number. Code blocks keep Bulma's monospace stack, which is system fonts and reaches
 no network; Nebula Sans has no mono companion.
+
+---
+
+## ADR-050 — Every folder is one the user made
+
+**Supersedes the reserved folder of §4.1 and §4.2.** The `unsorted` folder is gone:
+`seedDefaults()`, `UNSORTED_FOLDER_ID` and `UNSORTED_FOLDER_NAME` are deleted, `main.ts`
+writes nothing before the first paint, and no repository refuses a delete. `isEmpty` is
+now `folders.length === 0`, and `canDeleteFolder()` is gone with the last folder the UI
+had to treat differently.
+
+**Why.** A folder nobody made is a row nobody wants. It was seeded before the first
+paint to guarantee that a deck always had somewhere to live, and the guarantee was never
+worth its cost: on a first visit it was the only row on the screen, holding nothing, and
+ADR-047 already had to hide it behind a splash to keep that screen legible. Every layer
+then carried the exception — a delete the repository refused, a `deletable` prop, an id
+the domain had to know about. Removing the folder removes all of it, and the splash the
+first visit already gets is where the app asks for the first real folder.
+
+**What the splash says now.** The greeting gained one line — "Start with a folder.
+Folders hold decks, and decks hold your cards." — which is §7.1's "explains that decks
+live inside folders", finally said on the screen that needs it rather than in an empty
+list's notification.
+
+**An orphaned deck in a backup is dropped, not re-homed** (amends ADR-034). With no
+reserved folder to re-home it to, a deck whose folder the file does not carry has
+nowhere to go, so it is left out and counted, and its cards go with it — the treatment
+§10 already gave a card whose deck was missing. `BackupRepairs.rehomedDecks` became
+`rejectedDecks`, and the import preview says "1 deck with no folder will be left out."
+Inventing a folder to hold the orphans would have put back exactly the auto-created
+folder this ADR removes.
+
+**Consequence.** A library made before this change still has its seeded folder, named
+Unsorted or whatever it was renamed to. It is an ordinary folder now: it can be deleted,
+and while it is there the library is not empty, so the splash stays down. Nothing
+migrates it away — deleting a folder someone may have filled is not a decision this
+change gets to make for them. Replacing everything from a backup, and the danger zone's
+own **Delete all data**, now leave a genuinely empty library, so both land back on the
+splash; `deleteEverythingPrompt` no longer promises that Unsorted comes back.

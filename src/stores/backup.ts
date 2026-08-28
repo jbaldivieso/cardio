@@ -176,18 +176,18 @@ export const useBackupStore = defineStore('backup', () => {
   /** Clears the library and loads the file in its place (§10). Typed confirmation. */
   async function replace(): Promise<ImportReport | undefined> {
     return load('replace', async (data) => {
-      await repositories.library.replaceAll(data, Date.now())
+      await repositories.library.replaceAll(data)
       const { folders, decks, cards } = countsOf(data)
       return { added: folders + decks + cards, skipped: 0 }
     })
   }
 
-  /** The danger zone (§7.8): everything goes, and Unsorted comes back. */
+  /** The danger zone (§7.8): everything goes, and nothing takes its place. */
   async function deleteEverything(): Promise<boolean> {
     discard()
     busy.value = true
     const done = await attempt(async () => {
-      await repositories.library.replaceAll({ folders: [], decks: [], cards: [] }, Date.now())
+      await repositories.library.replaceAll({ folders: [], decks: [], cards: [] })
       return true
     })
     busy.value = false

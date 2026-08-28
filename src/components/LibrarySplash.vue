@@ -9,6 +9,9 @@ defineEmits<{ create: [] }>()
     <p class="subtitle is-4 has-text-grey" data-testid="splash-tagline">
       Flashcards for faster learning
     </p>
+    <p class="content has-text-grey mx-auto cardio-splash-hint" data-testid="splash-hint">
+      Start with a folder. Folders hold decks, and decks hold your cards.
+    </p>
     <button
       type="button"
       class="button is-primary is-medium cardio-action mt-6"
@@ -21,6 +24,12 @@ defineEmits<{ create: [] }>()
 </template>
 
 <style scoped>
+/* The hint is one sentence; on a wide screen it reads better as a short block
+   under the tagline than as a single line spanning the whole page. */
+.cardio-splash-hint {
+  max-width: 26rem;
+}
+
 /*
  * This is the only screen with no content of its own, so the name carries it:
  * up to twice the size Bulma's `is-1` gives a title. Bulma's title sizes are

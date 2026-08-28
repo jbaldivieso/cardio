@@ -13,6 +13,12 @@ describe('LibrarySplash', () => {
     )
   })
 
+  it('says a folder is the next step, and what one holds', () => {
+    expect(mount(LibrarySplash).get('[data-testid="splash-hint"]').text()).toBe(
+      'Start with a folder. Folders hold decks, and decks hold your cards.',
+    )
+  })
+
   it('asks for a first folder', async () => {
     const wrapper = mount(LibrarySplash)
     const button = wrapper.get('[data-testid="splash-create"]')

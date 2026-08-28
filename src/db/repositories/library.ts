@@ -1,4 +1,4 @@
-import { db, seedDefaults } from '@/db'
+import { db } from '@/db'
 import type { CardioDb } from '@/db'
 import { durableWrite } from '@/db/persistence'
 import type { LibraryData } from '@/domain/backup'
@@ -27,10 +27,11 @@ export interface LibraryRepo {
    */
   mergeAll(data: LibrarySnapshot): Promise<MergeReport>
   /**
-   * "Replace everything" (§10): clear all three tables, load the snapshot and
-   * re-seed Unsorted, all or nothing. Validation happens before the call.
+   * "Replace everything" (§10): clear all three tables and load the snapshot,
+   * all or nothing. Nothing is seeded afterwards, so an empty snapshot leaves an
+   * empty library (ADR-050). Validation happens before the call.
    */
-  replaceAll(data: LibrarySnapshot, now: number): Promise<void>
+  replaceAll(data: LibrarySnapshot): Promise<void>
 }
 
 /**
@@ -87,7 +88,7 @@ export function createLibraryRepo(database: CardioDb = db): LibraryRepo {
       )
     },
 
-    async replaceAll(data: LibrarySnapshot, now: number): Promise<void> {
+    async replaceAll(data: LibrarySnapshot): Promise<void> {
       await durableWrite(database, () =>
         database.transaction('rw', database.folders, database.decks, database.cards, async () => {
           await Promise.all([
@@ -98,9 +99,6 @@ export function createLibraryRepo(database: CardioDb = db): LibraryRepo {
           await database.folders.bulkAdd(data.folders)
           await database.decks.bulkAdd(data.decks)
           await database.cards.bulkAdd(data.cards)
-          // A backup taken from this app carries its own Unsorted, possibly
-          // renamed; one that does not gets a fresh one (§4.2, §10).
-          await seedDefaults(database, now)
         }),
       )
     },

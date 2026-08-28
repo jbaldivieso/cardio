@@ -1,18 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import { UNSORTED_FOLDER_ID, seedDefaults } from '@/db'
 import { useCardsStore } from '@/stores/cards'
 import { repositories } from '@/stores/repositories'
 import { useTestDatabase } from '@/test/repositories'
 
 describe('cards store', () => {
-  const test = useTestDatabase()
+  useTestDatabase()
+  let folderId: string
   let deckId: string
 
   beforeEach(async () => {
     setActivePinia(createPinia())
-    await seedDefaults(test.db, 1000)
-    deckId = (await repositories.decks.create(UNSORTED_FOLDER_ID, 'Verbs', 1000)).id
+    folderId = (await repositories.folders.create('Spanish', 1000)).id
+    deckId = (await repositories.decks.create(folderId, 'Verbs', 1000)).id
   })
 
   describe('load', () => {
@@ -36,7 +36,7 @@ describe('cards store', () => {
     })
 
     it('replaces the list when a different deck is loaded', async () => {
-      const other = await repositories.decks.create(UNSORTED_FOLDER_ID, 'Nouns', 1000)
+      const other = await repositories.decks.create(folderId, 'Nouns', 1000)
       await repositories.cards.create(deckId, { front: 'ser', back: 'to be' }, 1000)
       await repositories.cards.create(other.id, { front: 'gato', back: 'cat' }, 1000)
       const store = useCardsStore()

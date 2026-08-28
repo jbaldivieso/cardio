@@ -73,7 +73,7 @@ export function storedPrompt(counts: LibraryCounts | null): string {
 /** The typed confirmation before the library goes (§7.8). */
 export function deleteEverythingPrompt(counts: LibraryCounts | null): string {
   const names = counts === null ? '' : ` — ${libraryLabel(counts)}`
-  return `This deletes every folder, deck and card you have${names}. Unsorted comes back empty; nothing else comes back at all.`
+  return `This deletes every folder, deck and card you have${names}. Nothing comes back.`
 }
 
 /** The typed confirmation before a backup takes the library's place (§10). */
@@ -93,8 +93,8 @@ export function importPreview(counts: LibraryCounts): string {
 /** What validation had to put right to make the file loadable, a line each (§10). */
 export function repairNotes(repairs: BackupRepairs): string[] {
   const notes: string[] = []
-  if (repairs.rehomedDecks > 0) {
-    notes.push(`${countLabel(repairs.rehomedDecks, 'deck')} with no folder will go to Unsorted.`)
+  if (repairs.rejectedDecks > 0) {
+    notes.push(`${countLabel(repairs.rejectedDecks, 'deck')} with no folder will be left out.`)
   }
   if (repairs.rejectedCards > 0) {
     notes.push(`${countLabel(repairs.rejectedCards, 'card')} with no deck will be left out.`)

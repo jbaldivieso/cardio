@@ -279,7 +279,7 @@ async function onConfirmed(): Promise<void> {
         Delete all data
       </button>
       <p v-if="deleted" class="notification is-success is-light mt-3" data-testid="delete-report">
-        Everything was deleted. Unsorted is waiting for your first deck.
+        Everything was deleted. Create a folder to start again.
       </p>
     </section>
     <TypedConfirmDialog

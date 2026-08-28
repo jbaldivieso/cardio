@@ -4,7 +4,6 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
 import { routes } from '@/router'
-import { seedDefaults, UNSORTED_FOLDER_ID } from '@/db'
 import { useLibraryStore } from '@/stores/library'
 import { useMasteryStore } from '@/stores/mastery'
 import { useQuizStore } from '@/stores/quiz'
@@ -13,11 +12,13 @@ import { useTestDatabase } from '@/test/repositories'
 import FolderView from '@/views/FolderView.vue'
 
 describe('FolderView', () => {
-  const test = useTestDatabase()
+  useTestDatabase()
+  /** The folder under test, empty until a test puts a deck in it. */
+  let homeId: string
 
   beforeEach(async () => {
     setActivePinia(createPinia())
-    await seedDefaults(test.db, 1000)
+    homeId = (await repositories.folders.create('German', 1000)).id
   })
 
   async function mountView(folderId: string): Promise<VueWrapper> {
@@ -131,14 +132,14 @@ describe('FolderView', () => {
   })
 
   it('invites a first deck when the folder is empty', async () => {
-    const wrapper = await mountView(UNSORTED_FOLDER_ID)
+    const wrapper = await mountView(homeId)
 
     expect(rows(wrapper)).toHaveLength(0)
     expect(wrapper.get('[data-testid="decks-empty"]').text()).toContain('deck')
   })
 
   it('adds a deck through the new-deck dialog', async () => {
-    const wrapper = await mountView(UNSORTED_FOLDER_ID)
+    const wrapper = await mountView(homeId)
 
     await wrapper.get('[data-testid="new-deck"]').trigger('click')
     await wrapper.get('[data-testid="name-input"]').setValue('Verbs')
@@ -148,8 +149,8 @@ describe('FolderView', () => {
   })
 
   it('renames a deck through the rename dialog', async () => {
-    await repositories.decks.create(UNSORTED_FOLDER_ID, 'Verbz', 1000)
-    const wrapper = await mountView(UNSORTED_FOLDER_ID)
+    await repositories.decks.create(homeId, 'Verbz', 1000)
+    const wrapper = await mountView(homeId)
 
     await rows(wrapper)[0].get('[data-testid="deck-rename"]').trigger('click')
     await wrapper.get('[data-testid="name-input"]').setValue('Verbs')
@@ -160,8 +161,8 @@ describe('FolderView', () => {
 
   it('moves a deck out of the folder through the move dialog', async () => {
     const other = await repositories.folders.create('Spanish', 1000)
-    await repositories.decks.create(UNSORTED_FOLDER_ID, 'Verbs', 1000)
-    const wrapper = await mountView(UNSORTED_FOLDER_ID)
+    await repositories.decks.create(homeId, 'Verbs', 1000)
+    const wrapper = await mountView(homeId)
 
     await rows(wrapper)[0].get('[data-testid="deck-move"]').trigger('click')
     await wrapper.get('[data-testid="move-select"]').setValue(other.id)
@@ -172,8 +173,8 @@ describe('FolderView', () => {
 
   it('keeps the move dialog open, with the reason, when the move fails', async () => {
     await repositories.folders.create('Spanish', 1000)
-    await repositories.decks.create(UNSORTED_FOLDER_ID, 'Verbs', 1000)
-    const wrapper = await mountView(UNSORTED_FOLDER_ID)
+    await repositories.decks.create(homeId, 'Verbs', 1000)
+    const wrapper = await mountView(homeId)
     vi.spyOn(repositories.decks, 'move').mockRejectedValueOnce(
       new Error('That folder no longer exists.'),
     )
@@ -187,9 +188,9 @@ describe('FolderView', () => {
   })
 
   it('names the card count before deleting a deck', async () => {
-    const deck = await repositories.decks.create(UNSORTED_FOLDER_ID, 'Verbs', 1000)
+    const deck = await repositories.decks.create(homeId, 'Verbs', 1000)
     await repositories.cards.create(deck.id, { front: 'ser', back: 'to be' }, 1000)
-    const wrapper = await mountView(UNSORTED_FOLDER_ID)
+    const wrapper = await mountView(homeId)
 
     await rows(wrapper)[0].get('[data-testid="deck-delete"]').trigger('click')
 
@@ -199,8 +200,8 @@ describe('FolderView', () => {
   })
 
   it('deletes the deck once the confirmation is accepted', async () => {
-    await repositories.decks.create(UNSORTED_FOLDER_ID, 'Verbs', 1000)
-    const wrapper = await mountView(UNSORTED_FOLDER_ID)
+    await repositories.decks.create(homeId, 'Verbs', 1000)
+    const wrapper = await mountView(homeId)
 
     await rows(wrapper)[0].get('[data-testid="deck-delete"]').trigger('click')
     await wrapper.get('[data-testid="confirm-accept"]').trigger('click')
