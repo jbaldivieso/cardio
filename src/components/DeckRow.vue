@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { computed, useId } from 'vue'
+import ActionMenu from '@/components/ActionMenu.vue'
 import MasteryBar from '@/components/MasteryBar.vue'
 import type { MasterySummary } from '@/domain/aggregates'
 import type { Deck } from '@/domain/models'
 import { countLabel } from '@/domain/prompts'
 
 /**
- * One row of the folder screen (§7.2). The quickstart Quiz button and the
- * mastery bar sit beside the count.
+ * One row of the folder screen (§7.2). Quiz is the action the row is for, so it
+ * sits out on the row; rename, move and delete are behind the overflow menu
+ * beside the name (ADR-052).
  */
 const props = defineProps<{
   deck: Deck
@@ -51,6 +53,36 @@ function move(): void {
       >
         {{ deck.name }}
       </RouterLink>
+      <ActionMenu :label="`More actions for ${deck.name}`" testid="deck-menu">
+        <button
+          type="button"
+          class="dropdown-item"
+          data-testid="deck-rename"
+          @click="$emit('rename')"
+        >
+          Rename
+        </button>
+        <button
+          type="button"
+          class="dropdown-item"
+          :class="{ 'has-text-grey': !movable }"
+          :aria-disabled="movable ? 'false' : 'true'"
+          :aria-describedby="movable ? undefined : moveReasonId"
+          :title="movable ? undefined : 'There is no other folder to move this deck to.'"
+          data-testid="deck-move"
+          @click="move"
+        >
+          Move
+        </button>
+        <button
+          type="button"
+          class="dropdown-item has-text-danger"
+          data-testid="deck-delete"
+          @click="$emit('delete')"
+        >
+          Delete
+        </button>
+      </ActionMenu>
       <p class="is-size-7 has-text-grey" data-testid="deck-count">
         {{ countLabel(cardCount, 'card') }}
       </p>
@@ -67,34 +99,6 @@ function move(): void {
         @click="quiz"
       >
         Quiz
-      </button>
-      <button
-        type="button"
-        class="button is-ghost cardio-action"
-        data-testid="deck-rename"
-        @click="$emit('rename')"
-      >
-        Rename
-      </button>
-      <button
-        type="button"
-        class="button is-ghost cardio-action"
-        :class="{ 'is-static': !movable }"
-        :aria-disabled="movable ? 'false' : 'true'"
-        :aria-describedby="movable ? undefined : moveReasonId"
-        :title="movable ? undefined : 'There is no other folder to move this deck to.'"
-        data-testid="deck-move"
-        @click="move"
-      >
-        Move
-      </button>
-      <button
-        type="button"
-        class="button is-ghost has-text-danger cardio-action"
-        data-testid="deck-delete"
-        @click="$emit('delete')"
-      >
-        Delete
       </button>
     </div>
     <span v-if="!movable" :id="moveReasonId" class="is-sr-only">

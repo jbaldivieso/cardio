@@ -971,3 +971,40 @@ when not. Anything asserting on `RouterLink` for these actions has to seed a car
 Each gated action needs a reason element that exists whenever the gate is closed: the
 deck screen reuses `#deck-quiz-reason`, which already says the one thing there is to say,
 and the folder screen and deck row carry their own.
+
+---
+
+## ADR-052 — A row's overflow actions live behind a disclosure, not an ARIA menu
+
+**Decision.** `ActionMenu.vue` holds the actions §7.1 and §7.2 always called an overflow
+menu: a trigger carrying Feather's "more-horizontal", inlined like the app's other two
+icons, sitting immediately after the row's name, and a Bulma `dropdown-menu` holding
+whatever buttons the row passes in the slot. Folder rows put rename and delete there;
+deck rows put rename, move and delete. Quiz stays out on the row in both.
+
+**Why a disclosure.** `role="menu"` is a promise of menu keyboard behaviour — arrow keys
+between items, Home and End, typeahead — and a slot full of ordinary buttons delivers
+none of it. The trigger is a plain button with `aria-expanded` and `aria-controls`; the
+panel is a group of buttons Tab walks in order, which is the disclosure pattern and is
+what the markup actually does. Escape closes the panel and puts the focus back on the
+trigger, and a press anywhere outside closes it.
+
+**Why the panel is `v-if` and not `v-show`.** Bulma hides an inactive `dropdown-menu`
+with `display: none`, so both look the same in a browser; only `v-if` keeps a closed
+menu's buttons out of the DOM, where nothing — a test, a `find`, an accessibility tree —
+can reach an action that is not on screen. `aria-controls` is bound only while the panel
+exists, since it would otherwise name an id that is not there.
+
+**A gated item leaves the menu open.** The panel closes on any press that reaches it,
+except one landing on an `aria-disabled="true"` item: nothing happened, so taking the
+menu away would take its reason with it. That is the one place the menu inspects what
+the slot rendered.
+
+**Consequence.** Rename, move and delete cost two presses instead of one, which is the
+trade §7.1 asked for: the row now reads as a name, its size and the one action it is
+for. The 44 px target of §7 is applied once, on `.dropdown-item` inside the panel via
+`:deep`, rather than by every row that fills the slot. Anything reaching for
+`folder-rename`, `deck-rename`, `deck-move` or `deck-delete` — a test, or a future
+keyboard shortcut — has to open the menu first. Playwright treats `aria-disabled` as
+disabled for actionability, so an e2e test cannot click the gated Move to prove it does
+nothing; the component tests cover that path.

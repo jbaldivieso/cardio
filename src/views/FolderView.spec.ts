@@ -42,6 +42,11 @@ describe('FolderView', () => {
     return wrapper.findAll('[data-testid="deck-row"]')
   }
 
+  /** Rename, move and delete live behind a row's overflow menu (§7.2). */
+  async function openRowMenu(wrapper: VueWrapper, index = 0): Promise<void> {
+    await rows(wrapper)[index].get('[data-testid="deck-menu"]').trigger('click')
+  }
+
   it('shows the folder in a breadcrumb under Folders', async () => {
     const folder = await repositories.folders.create('Spanish', 1000)
 
@@ -152,6 +157,7 @@ describe('FolderView', () => {
     await repositories.decks.create(homeId, 'Verbz', 1000)
     const wrapper = await mountView(homeId)
 
+    await openRowMenu(wrapper)
     await rows(wrapper)[0].get('[data-testid="deck-rename"]').trigger('click')
     await wrapper.get('[data-testid="name-input"]').setValue('Verbs')
     await wrapper.get('[data-testid="name-save"]').trigger('click')
@@ -163,6 +169,7 @@ describe('FolderView', () => {
     await repositories.decks.create(homeId, 'Verbs', 1000)
     const wrapper = await mountView(homeId)
 
+    await openRowMenu(wrapper)
     const button = rows(wrapper)[0].get('[data-testid="deck-move"]')
     await button.trigger('click')
     await flushPromises()
@@ -175,9 +182,20 @@ describe('FolderView', () => {
     await repositories.decks.create(homeId, 'Verbs', 1000)
     const wrapper = await mountView(homeId)
 
+    await openRowMenu(wrapper)
     const button = rows(wrapper)[0].get('[data-testid="deck-move"]')
     const reason = wrapper.get(`#${button.attributes('aria-describedby')}`)
     expect(reason.text()).toContain('no other folder')
+  })
+
+  it('keeps rename, move and delete behind the row menu, leaving Quiz on the row', async () => {
+    await repositories.decks.create(homeId, 'Verbs', 1000)
+    const wrapper = await mountView(homeId)
+
+    expect(rows(wrapper)[0].get('[data-testid="deck-quiz"]').isVisible()).toBe(true)
+    for (const action of ['deck-rename', 'deck-move', 'deck-delete']) {
+      expect(rows(wrapper)[0].find(`[data-testid="${action}"]`).exists()).toBe(false)
+    }
   })
 
   it('moves a deck out of the folder through the move dialog', async () => {
@@ -185,6 +203,7 @@ describe('FolderView', () => {
     await repositories.decks.create(homeId, 'Verbs', 1000)
     const wrapper = await mountView(homeId)
 
+    await openRowMenu(wrapper)
     await rows(wrapper)[0].get('[data-testid="deck-move"]').trigger('click')
     await wrapper.get('[data-testid="move-select"]').setValue(other.id)
     await wrapper.get('[data-testid="move-save"]').trigger('click')
@@ -200,6 +219,7 @@ describe('FolderView', () => {
       new Error('That folder no longer exists.'),
     )
 
+    await openRowMenu(wrapper)
     await rows(wrapper)[0].get('[data-testid="deck-move"]').trigger('click')
     await wrapper.get('[data-testid="move-save"]').trigger('click')
     await flushPromises()
@@ -213,6 +233,7 @@ describe('FolderView', () => {
     await repositories.cards.create(deck.id, { front: 'ser', back: 'to be' }, 1000)
     const wrapper = await mountView(homeId)
 
+    await openRowMenu(wrapper)
     await rows(wrapper)[0].get('[data-testid="deck-delete"]').trigger('click')
 
     expect(wrapper.get('[data-testid="confirm-message"]').text()).toBe(
@@ -224,6 +245,7 @@ describe('FolderView', () => {
     await repositories.decks.create(homeId, 'Verbs', 1000)
     const wrapper = await mountView(homeId)
 
+    await openRowMenu(wrapper)
     await rows(wrapper)[0].get('[data-testid="deck-delete"]').trigger('click')
     await wrapper.get('[data-testid="confirm-accept"]').trigger('click')
 

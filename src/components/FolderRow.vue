@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { computed, useId } from 'vue'
+import ActionMenu from '@/components/ActionMenu.vue'
 import MasteryBar from '@/components/MasteryBar.vue'
 import type { MasterySummary } from '@/domain/aggregates'
 import type { Folder } from '@/domain/models'
 import { countLabel } from '@/domain/prompts'
 
-/** One row of the home screen (§7.1). */
+/**
+ * One row of the home screen (§7.1). Quiz is the action the row is for, so it
+ * sits out on the row; rename and delete are behind the overflow menu beside
+ * the name (ADR-052).
+ */
 const props = defineProps<{
   folder: Folder
   deckCount: number
@@ -38,6 +43,24 @@ function quiz(): void {
       >
         {{ folder.name }}
       </RouterLink>
+      <ActionMenu :label="`More actions for ${folder.name}`" testid="folder-menu">
+        <button
+          type="button"
+          class="dropdown-item"
+          data-testid="folder-rename"
+          @click="$emit('rename')"
+        >
+          Rename
+        </button>
+        <button
+          type="button"
+          class="dropdown-item has-text-danger"
+          data-testid="folder-delete"
+          @click="$emit('delete')"
+        >
+          Delete
+        </button>
+      </ActionMenu>
       <p class="is-size-7 has-text-grey" data-testid="folder-counts">
         {{ countLabel(deckCount, 'deck') }} · {{ countLabel(cardCount, 'card') }}
       </p>
@@ -54,22 +77,6 @@ function quiz(): void {
         @click="quiz"
       >
         Quiz
-      </button>
-      <button
-        type="button"
-        class="button is-ghost cardio-action"
-        data-testid="folder-rename"
-        @click="$emit('rename')"
-      >
-        Rename
-      </button>
-      <button
-        type="button"
-        class="button is-ghost has-text-danger cardio-action"
-        data-testid="folder-delete"
-        @click="$emit('delete')"
-      >
-        Delete
       </button>
     </div>
     <span :id="reasonId" class="is-sr-only">

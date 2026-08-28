@@ -39,6 +39,11 @@ describe('FoldersView', () => {
     return wrapper.findAll('[data-testid="folder-row"]')
   }
 
+  /** Rename and delete live behind a row's overflow menu (§7.1). */
+  async function openRowMenu(wrapper: VueWrapper, index = 0): Promise<void> {
+    await rows(wrapper)[index].get('[data-testid="folder-menu"]').trigger('click')
+  }
+
   /** A library someone has started, so the screen lists it instead of the splash. */
   async function seedStartedLibrary(): Promise<string> {
     const folder = await repositories.folders.create('German', 1000)
@@ -146,9 +151,20 @@ describe('FoldersView', () => {
     await test.db.folders.add({ id: 'unsorted', name: 'Unsorted', createdAt: 1, updatedAt: 1 })
 
     const wrapper = await mountView()
+    await openRowMenu(wrapper)
 
     expect(rows(wrapper)[0].find('[data-testid="folder-rename"]').exists()).toBe(true)
     expect(rows(wrapper)[0].find('[data-testid="folder-delete"]').exists()).toBe(true)
+  })
+
+  it('keeps rename and delete behind the row menu, leaving Quiz on the row', async () => {
+    await seedStartedLibrary()
+
+    const wrapper = await mountView()
+
+    expect(rows(wrapper)[0].get('[data-testid="folder-quiz"]').isVisible()).toBe(true)
+    expect(rows(wrapper)[0].find('[data-testid="folder-rename"]').exists()).toBe(false)
+    expect(rows(wrapper)[0].find('[data-testid="folder-delete"]').exists()).toBe(false)
   })
 
   it('adds a folder through the new-folder dialog', async () => {
@@ -183,6 +199,7 @@ describe('FoldersView', () => {
     await repositories.folders.create('Spanihs', 1000)
     const wrapper = await mountView()
 
+    await openRowMenu(wrapper)
     await rows(wrapper)[0].get('[data-testid="folder-rename"]').trigger('click')
     await wrapper.get('[data-testid="name-input"]').setValue('Spanish')
     await wrapper.get('[data-testid="name-save"]').trigger('click')
@@ -196,6 +213,7 @@ describe('FoldersView', () => {
     await repositories.cards.create(deck.id, { front: 'ser', back: 'to be' }, 1000)
     const wrapper = await mountView()
 
+    await openRowMenu(wrapper)
     await rows(wrapper)[0].get('[data-testid="folder-delete"]').trigger('click')
 
     expect(wrapper.get('[data-testid="confirm-message"]').text()).toBe(
@@ -207,6 +225,7 @@ describe('FoldersView', () => {
     await repositories.folders.create('Spanish', 1000)
     const wrapper = await mountView()
 
+    await openRowMenu(wrapper)
     await rows(wrapper)[0].get('[data-testid="folder-delete"]').trigger('click')
     await wrapper.get('[data-testid="confirm-accept"]').trigger('click')
 
@@ -217,6 +236,7 @@ describe('FoldersView', () => {
     await repositories.folders.create('Spanish', 1000)
     const wrapper = await mountView()
 
+    await openRowMenu(wrapper)
     await rows(wrapper)[0].get('[data-testid="folder-delete"]').trigger('click')
     await wrapper.get('[data-testid="confirm-cancel"]').trigger('click')
     await flushPromises()

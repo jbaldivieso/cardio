@@ -399,8 +399,8 @@ over bespoke CSS. Every element an e2e test touches carries a `data-testid`.
 
 List of folders, each row: name, deck count, card count, mastery bar (§7.6), link to the
 folder, and a **Quiz** action that starts a quickstart quiz across all decks in the
-folder. Header action: **New folder** (modal, name field). Row overflow menu: rename
-(modal), delete (confirm dialog, §4.4). Empty state invites creating a folder and
+folder. Header action: **New folder** (modal, name field). Row overflow menu, behind a
+"more" trigger beside the name: rename (modal), delete (confirm dialog, §4.4). Empty state invites creating a folder and
 explains that decks live inside folders.
 
 ### 7.2 Folder — decks
@@ -409,7 +409,8 @@ Breadcrumb `Folders / <name>`. Header actions: **New deck** (modal) and
 **Custom quiz** (goes to `quiz-configure` with this folder's decks pre-checked).
 Each deck row: name, card count, mastery bar, and a **Quiz** quickstart button
 (`direction: front`, `tier: 4`, `size: 20`) that goes straight to `quiz-run`.
-Row overflow: rename, move to another folder (modal with folder select), delete.
+Row overflow, behind a "more" trigger beside the name: rename, move to another folder
+(modal with folder select), delete.
 An action with nothing to act on is disabled with a tooltip saying why: quickstart and
 the header's **Custom quiz** when there are no cards to draw on, and **Move** when
 there is no other folder to move the deck to. Empty state invites creating a deck.
