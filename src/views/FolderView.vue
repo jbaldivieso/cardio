@@ -42,11 +42,12 @@ const error = computed(() => library.error ?? mastery.error)
 
 /**
  * A folder with no cards anywhere in it has nothing to configure a quiz over, so
- * the header's Custom quiz is gated on the same count its rows are (ADR-051).
+ * the header does not offer one, on the same count its rows go by (ADR-054).
  */
 const quizzable = computed(() => library.countsFor(props.folderId).cards > 0)
 
-/** A deck can only be moved somewhere: with one folder there is nowhere (§7.2). */
+/** A deck can only be moved somewhere: with one folder there is nowhere, and no
+ * Move on its row to press (§7.2). */
 const movable = computed(() => library.folders.length > 1)
 
 // The bars need each deck's cards, which are a read behind the decks themselves.
@@ -131,17 +132,6 @@ async function confirmDelete(): Promise<void> {
             Custom quiz
           </RouterLink>
           <button
-            v-else
-            type="button"
-            class="button cardio-action is-static"
-            aria-disabled="true"
-            aria-describedby="folder-custom-quiz-reason"
-            title="This folder has no cards to quiz yet."
-            data-testid="folder-custom-quiz"
-          >
-            Custom quiz
-          </button>
-          <button
             type="button"
             class="button is-primary cardio-action"
             data-testid="new-deck"
@@ -150,9 +140,6 @@ async function confirmDelete(): Promise<void> {
             New deck
           </button>
         </div>
-        <span v-if="!quizzable" id="folder-custom-quiz-reason" class="is-sr-only">
-          This folder has no cards to quiz yet.
-        </span>
       </div>
 
       <DeckRow

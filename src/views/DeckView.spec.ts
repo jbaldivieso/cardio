@@ -180,15 +180,10 @@ describe('DeckView', () => {
       expect(quiz.origin).toEqual({ name: 'deck', params: { deckId } })
     })
 
-    it('will not quickstart a deck with no cards', async () => {
+    it('offers no quickstart on a deck with no cards', async () => {
       const wrapper = await mountView()
 
-      const button = wrapper.get('[data-testid="deck-quiz"]')
-      await button.trigger('click')
-      await flushPromises()
-
-      expect(button.attributes('aria-disabled')).toBe('true')
-      expect(useQuizStore().phase).toBe('configuring')
+      expect(wrapper.find('[data-testid="deck-quiz"]').exists()).toBe(false)
     })
 
     it('offers a custom quiz over this deck', async () => {
@@ -205,10 +200,7 @@ describe('DeckView', () => {
     it('offers no custom quiz over a deck with no cards', async () => {
       const wrapper = await mountView()
 
-      const action = wrapper.get('[data-testid="deck-custom-quiz"]')
-      expect(action.attributes('aria-disabled')).toBe('true')
-      const reason = wrapper.get(`#${action.attributes('aria-describedby')}`)
-      expect(reason.text()).toContain('no cards')
+      expect(wrapper.find('[data-testid="deck-custom-quiz"]').exists()).toBe(false)
     })
   })
 })

@@ -444,6 +444,10 @@ button has no use for `1` or `←`, so grading still works with the focus on **G
 
 ## ADR-031 — A gated action says `aria-disabled`, not `disabled`
 
+**Narrowed by ADR-054**, which takes the quickstart buttons and both custom quizzes out
+of the DOM rather than disabling them. One gated action is left — **Start quiz** on the
+configure screen — and everything below still describes it.
+
 **Decision.** The quickstart buttons on a deck row, a folder row and the deck screen, and
 **Start quiz** on the configure screen, carry `aria-disabled="true"` and Bulma's
 `is-static` when they cannot run. They keep the `disabled` attribute off, stay in the tab
@@ -956,6 +960,9 @@ splash; `deleteEverythingPrompt` no longer promises that Unsorted comes back.
 
 ## ADR-051 — A gated navigation is a disabled button, not a dead link
 
+**Superseded by ADR-054.** A **Custom quiz** with nothing to configure is no longer
+rendered at all, so there is no gated state left for the element swap below to serve.
+
 **Extends ADR-031.** The **Custom quiz** actions on the folder and deck screens are
 `RouterLink`s while they lead somewhere and a `<button class="is-static"
 aria-disabled="true">` carrying the same label and `data-testid` when they do not. Both
@@ -1005,19 +1012,13 @@ menu's buttons out of the DOM, where nothing — a test, a `find`, an accessibil
 can reach an action that is not on screen. `aria-controls` is bound only while the panel
 exists, since it would otherwise name an id that is not there.
 
-**A gated item leaves the menu open.** The panel closes on any press that reaches it,
-except one landing on an `aria-disabled="true"` item: nothing happened, so taking the
-menu away would take its reason with it. That is the one place the menu inspects what
-the slot rendered.
-
 **Consequence.** Rename, move and delete cost two presses instead of one, which is the
 trade §7.1 asked for: the row now reads as a name, its size and the one action it is
 for. The 44 px target of §7 is applied once, on `.dropdown-item` inside the panel via
 `:deep`, rather than by every row that fills the slot. Anything reaching for
 `folder-rename`, `deck-rename`, `deck-move` or `deck-delete` — a test, or a future
-keyboard shortcut — has to open the menu first. Playwright treats `aria-disabled` as
-disabled for actionability, so an e2e test cannot click the gated Move to prove it does
-nothing; the component tests cover that path.
+keyboard shortcut — has to open the menu first. The panel closes on any press that
+reaches it, with no exceptions: ADR-054 leaves no gated item in the slot to make one for.
 
 ---
 
@@ -1048,3 +1049,42 @@ would see the panel escape to the next positioned ancestor. `e2e/row-menu.spec.t
 the regression at both viewports, with the short and the long name as the two ends of
 the range; it is an e2e test because the panel's position comes from Bulma's stylesheet
 and the width of a name in the app's own font, which jsdom has neither of.
+
+---
+
+## ADR-054 — An action with nothing to act on is not rendered
+
+**Narrows ADR-031, supersedes ADR-051, amends ADR-052.** The quickstart **Quiz** on a
+deck row, a folder row and the deck screen, the **Custom quiz** on the folder and deck
+screens, and **Move** in a deck row's menu are absent from the DOM whenever they cannot
+run. No `aria-disabled`, no `is-static`, no `title`, and none of the `is-sr-only`
+sentences that used to carry the reason: the control is simply not there until it works.
+
+**Why.** ADR-031 kept a gated action on screen so its reason could be heard, and made
+the reason reachable two ways — a `title` for the pointer, an `aria-describedby` sentence
+for a screen reader. Only one of the two ever worked. Bulma's `.button.is-static` is
+`pointer-events: none`, so the element never sees a hover and the browser never draws the
+tooltip; the sighted user got a grey button that stayed silent when pressed and explained
+itself only to a screen reader. §7.2 had asked for "disabled with a tooltip", and the
+implementation had been quietly delivering half of it since ADR-031 was written.
+
+Restoring the tooltip was the smaller change, and it would still have left a control
+whose whole purpose is to be pressed and refuse. The empty states already say what is
+missing — an empty deck's screen says "No cards in this deck yet", an empty folder's says
+to create a deck — so the reason was never only on the disabled button, and the button
+was the least useful place it appeared.
+
+**The one exception is `quiz-configure`'s Start quiz** (§7.5), which keeps ADR-031's
+treatment. It is the screen's only submit, and its gate opens and closes while the user
+works — untick the last deck and a hidden button would vanish from under the pointer,
+which is worse than a disabled one that says why. A gate the user can open from the same
+screen is a different thing from an action that has nowhere to go.
+
+**Consequence.** An empty deck's row is a name, a count and its menu; a library with one
+folder has no **Move** anywhere in it. `DeckRow` and `FolderRow` lost their `useId`
+reason ids and their guard functions — the handlers no longer need to check what the
+render already decided — and `ActionMenu` lost the `aria-disabled` branch that kept the
+panel open for a gated item, since no slot passes one any more. The `movable` and
+`cardCount` props stay: they now decide whether to render rather than how. A test can no
+longer press a gated action to prove it does nothing, so the assertions are that the
+`data-testid` is absent, which is the stronger claim anyway.

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, useId } from 'vue'
+import { computed } from 'vue'
 import ActionMenu from '@/components/ActionMenu.vue'
 import MasteryBar from '@/components/MasteryBar.vue'
 import type { MasterySummary } from '@/domain/aggregates'
@@ -20,24 +20,13 @@ const props = defineProps<{
   summary?: MasterySummary
 }>()
 
-const emit = defineEmits<{ rename: []; move: []; delete: []; quiz: [] }>()
+defineEmits<{ rename: []; move: []; delete: []; quiz: [] }>()
 
 /**
- * An empty deck cannot be quizzed (§7.2). The button says so through
- * `aria-disabled` rather than the `disabled` attribute, which would take it out
- * of the tab order and its reason with it (docs/decisions.md > ADR-031).
+ * An empty deck has nothing to quiz, so the row does not offer it at all
+ * (docs/decisions.md > ADR-054). Move goes the same way when `movable` is false.
  */
 const quizzable = computed(() => props.cardCount > 0)
-const reasonId = useId()
-const moveReasonId = useId()
-
-function quiz(): void {
-  if (quizzable.value) emit('quiz')
-}
-
-function move(): void {
-  if (props.movable) emit('move')
-}
 </script>
 
 <template>
@@ -63,14 +52,11 @@ function move(): void {
           Rename
         </button>
         <button
+          v-if="movable"
           type="button"
           class="dropdown-item"
-          :class="{ 'has-text-grey': !movable }"
-          :aria-disabled="movable ? 'false' : 'true'"
-          :aria-describedby="movable ? undefined : moveReasonId"
-          :title="movable ? undefined : 'There is no other folder to move this deck to.'"
           data-testid="deck-move"
-          @click="move"
+          @click="$emit('move')"
         >
           Move
         </button>
@@ -87,30 +73,16 @@ function move(): void {
         {{ countLabel(cardCount, 'card') }}
       </p>
     </div>
-    <div class="is-flex is-flex-shrink-0 is-gap-1">
+    <div v-if="quizzable" class="is-flex is-flex-shrink-0 is-gap-1">
       <button
         type="button"
         class="button is-primary is-light cardio-action"
-        :class="{ 'is-static': !quizzable }"
-        :aria-disabled="quizzable ? 'false' : 'true'"
-        :aria-describedby="reasonId"
-        :title="quizzable ? undefined : 'This deck has no cards to quiz yet.'"
         data-testid="deck-quiz"
-        @click="quiz"
+        @click="$emit('quiz')"
       >
         Quiz
       </button>
     </div>
-    <span v-if="!movable" :id="moveReasonId" class="is-sr-only">
-      There is no other folder to move this deck to. Create one first.
-    </span>
-    <span :id="reasonId" class="is-sr-only">
-      {{
-        quizzable
-          ? `Quiz this deck: ${countLabel(cardCount, 'card')}.`
-          : 'This deck has no cards to quiz yet.'
-      }}
-    </span>
     <MasteryBar v-if="summary" :summary="summary" class="cardio-row-full mt-2" />
   </div>
 </template>

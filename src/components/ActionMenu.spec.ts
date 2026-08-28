@@ -4,16 +4,14 @@ import type { VueWrapper } from '@vue/test-utils'
 import ActionMenu from '@/components/ActionMenu.vue'
 
 describe('ActionMenu', () => {
-  /** The menu with two actions in it, one of them gated. */
+  /** The menu with two actions in it. */
   function mountMenu(): VueWrapper {
     return mount(ActionMenu, {
       props: { label: 'More actions for “Verbs”', testid: 'deck-menu' },
       slots: {
         default: `
           <button type="button" class="dropdown-item" data-testid="rename">Rename</button>
-          <button type="button" class="dropdown-item" aria-disabled="true" data-testid="move">
-            Move
-          </button>
+          <button type="button" class="dropdown-item" data-testid="delete">Delete</button>
         `,
       },
       attachTo: document.body,
@@ -69,15 +67,6 @@ describe('ActionMenu', () => {
     await wrapper.get('[data-testid="rename"]').trigger('click')
 
     expect(wrapper.find('[data-testid="rename"]').exists()).toBe(false)
-  })
-
-  it('stays open when a gated action is pressed, so its reason stays on screen', async () => {
-    const wrapper = mountMenu()
-    await open(wrapper)
-
-    await wrapper.get('[data-testid="move"]').trigger('click')
-
-    expect(wrapper.find('[data-testid="move"]').exists()).toBe(true)
   })
 
   it('closes on Escape, and hands the focus back to the trigger', async () => {

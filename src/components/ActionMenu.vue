@@ -42,16 +42,6 @@ function onKeydown(event: KeyboardEvent): void {
   trigger.value?.focus()
 }
 
-/**
- * A press inside the panel has done whatever it was going to do, so the menu
- * gets out of the way — unless the item was gated, where nothing happened and
- * the reason beside it is still worth reading.
- */
-function onPanelClick(event: MouseEvent): void {
-  if ((event.target as HTMLElement | null)?.closest('[aria-disabled="true"]')) return
-  close()
-}
-
 // Listening only while open keeps a screen of rows from holding a document
 // listener each.
 watch(open, (isOpen) => {
@@ -112,7 +102,7 @@ onBeforeUnmount(() => {
       :id="panelId"
       class="dropdown-menu"
       :data-testid="`${testid}-panel`"
-      @click="onPanelClick"
+      @click="close"
     >
       <div class="dropdown-content">
         <slot />

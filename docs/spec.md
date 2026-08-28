@@ -398,10 +398,11 @@ over bespoke CSS. Every element an e2e test touches carries a `data-testid`.
 ### 7.1 Home — folders
 
 List of folders, each row: name, deck count, card count, mastery bar (§7.6), link to the
-folder, and a **Quiz** action that starts a quickstart quiz across all decks in the
-folder. Header action: **New folder** (modal, name field). Row overflow menu, behind a
-"more" trigger beside the name: rename (modal), delete (confirm dialog, §4.4). Empty state invites creating a folder and
-explains that decks live inside folders.
+folder, and — once the folder holds a card — a **Quiz** action that starts a quickstart
+quiz across all decks in the folder. Header action: **New folder** (modal, name field).
+Row overflow menu, behind a "more" trigger beside the name: rename (modal), delete
+(confirm dialog, §4.4). Empty state invites creating a folder and explains that decks
+live inside folders.
 
 ### 7.2 Folder — decks
 
@@ -411,15 +412,15 @@ Each deck row: name, card count, mastery bar, and a **Quiz** quickstart button
 (`direction: front`, `tier: 4`, `size: 20`) that goes straight to `quiz-run`.
 Row overflow, behind a "more" trigger beside the name: rename, move to another folder
 (modal with folder select), delete.
-An action with nothing to act on is disabled with a tooltip saying why: quickstart and
-the header's **Custom quiz** when there are no cards to draw on, and **Move** when
-there is no other folder to move the deck to. Empty state invites creating a deck.
+An action with nothing to act on is not rendered at all rather than shown disabled:
+quickstart and the header's **Custom quiz** while there are no cards to draw on, and
+**Move** while there is no other folder to move the deck to. Empty state invites
+creating a deck.
 
 ### 7.3 Deck — cards
 
 Breadcrumb `Folders / <folder> / <deck>`. Header actions: **New card**, **Bulk add**
-(§9), **Quiz** and **Custom quiz** — the last two disabled with a tooltip while the deck
-has no cards. Each card row shows the rendered front (clamped to ~2 lines), a mastery
+(§9), and — once the deck holds a card — **Quiz** and **Custom quiz**. Each card row shows the rendered front (clamped to ~2 lines), a mastery
 badge (`new` / `NN%`), and edit/delete actions. Tapping a row opens the editor.
 
 ### 7.4 Card editor
@@ -435,7 +436,8 @@ Direction toggle (Front / Back), the 7-tier slider with its label, session size
 (10 / 20 / 50 / All), and every deck grouped by folder as checkboxes with a
 select-all per folder. Pre-filled from the launch context, then from
 `cardio.quizConfig`. **Start quiz** is disabled until at least one deck with at least
-one card is checked. If the resulting pool is empty, show an inline explanation instead
+one card is checked — the one action the app disables rather than hides (§7.2), because
+it is this screen's only submit and its gate opens and closes as boxes are ticked. If the resulting pool is empty, show an inline explanation instead
 of navigating.
 
 ### 7.6 Quiz run

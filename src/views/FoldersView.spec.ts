@@ -158,13 +158,21 @@ describe('FoldersView', () => {
   })
 
   it('keeps rename and delete behind the row menu, leaving Quiz on the row', async () => {
-    await seedStartedLibrary()
+    const folder = await repositories.folders.create('German', 1000)
+    const deck = await repositories.decks.create(folder.id, 'Verbs', 1000)
+    // Quiz is only on the row when there is something to quiz (ADR-054).
+    await repositories.cards.create(deck.id, { front: 'sein', back: 'to be' }, 1000)
 
     const wrapper = await mountView()
 
     expect(rows(wrapper)[0].get('[data-testid="folder-quiz"]').isVisible()).toBe(true)
     expect(rows(wrapper)[0].find('[data-testid="folder-rename"]').exists()).toBe(false)
     expect(rows(wrapper)[0].find('[data-testid="folder-delete"]').exists()).toBe(false)
+
+    await openRowMenu(wrapper)
+
+    expect(rows(wrapper)[0].get('[data-testid="folder-rename"]').isVisible()).toBe(true)
+    expect(rows(wrapper)[0].get('[data-testid="folder-delete"]').isVisible()).toBe(true)
   })
 
   it('adds a folder through the new-folder dialog', async () => {
@@ -274,17 +282,12 @@ describe('FoldersView', () => {
       expect(quiz.direction).toBe('front')
     })
 
-    it('will not quickstart a folder with no cards in it', async () => {
+    it('offers no quickstart on a folder with no cards in it', async () => {
       await repositories.folders.create('Spanish', 1000)
       const wrapper = await mountView()
 
       const spanish = rows(wrapper).find((row) => row.text().includes('Spanish'))
-      const button = spanish?.get('[data-testid="folder-quiz"]')
-      await button?.trigger('click')
-      await flushPromises()
-
-      expect(button?.attributes('aria-disabled')).toBe('true')
-      expect(useQuizStore().phase).toBe('configuring')
+      expect(spanish?.find('[data-testid="folder-quiz"]').exists()).toBe(false)
     })
   })
 })

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, useId } from 'vue'
+import { computed } from 'vue'
 import ActionMenu from '@/components/ActionMenu.vue'
 import MasteryBar from '@/components/MasteryBar.vue'
 import type { MasterySummary } from '@/domain/aggregates'
@@ -19,15 +19,13 @@ const props = defineProps<{
   summary?: MasterySummary
 }>()
 
-const emit = defineEmits<{ rename: []; delete: []; quiz: [] }>()
+defineEmits<{ rename: []; delete: []; quiz: [] }>()
 
-/** A folder with no cards anywhere in it has nothing to quiz (ADR-031). */
+/**
+ * A folder with no cards anywhere in it has nothing to quiz, so the row does not
+ * offer it at all (docs/decisions.md > ADR-054).
+ */
 const quizzable = computed(() => props.cardCount > 0)
-const reasonId = useId()
-
-function quiz(): void {
-  if (quizzable.value) emit('quiz')
-}
 </script>
 
 <template>
@@ -65,27 +63,16 @@ function quiz(): void {
         {{ countLabel(deckCount, 'deck') }} · {{ countLabel(cardCount, 'card') }}
       </p>
     </div>
-    <div class="is-flex is-flex-shrink-0 is-gap-1">
+    <div v-if="quizzable" class="is-flex is-flex-shrink-0 is-gap-1">
       <button
         type="button"
         class="button is-primary is-light cardio-action"
-        :class="{ 'is-static': !quizzable }"
-        :aria-disabled="quizzable ? 'false' : 'true'"
-        :aria-describedby="reasonId"
-        :title="quizzable ? undefined : 'This folder has no cards to quiz yet.'"
         data-testid="folder-quiz"
-        @click="quiz"
+        @click="$emit('quiz')"
       >
         Quiz
       </button>
     </div>
-    <span :id="reasonId" class="is-sr-only">
-      {{
-        quizzable
-          ? `Quiz every deck in ${folder.name}: ${countLabel(cardCount, 'card')}.`
-          : 'This folder has no cards to quiz yet.'
-      }}
-    </span>
     <MasteryBar v-if="summary" :summary="summary" class="cardio-row-full mt-2" />
   </div>
 </template>
