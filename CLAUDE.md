@@ -80,9 +80,9 @@ store privates.
   `src/components/PlaceholderPanel.vue` itself with the last one.
 - Update the item's `Status:` line when done, and record deviations in
   `docs/decisions.md`.
-- Branch per item (`git switch -c 03-folder-crud`), open a PR, keep commits small with
-  imperative subjects ("Add folder repository", not "feat: added stuff"). No
-  conventional-commit prefixes.
+- Commit straight to `main`. Keep commits small, with imperative subjects ("Add folder
+  repository", not "feat: added stuff"). No conventional-commit prefixes. Branch and
+  open a PR only when you want review on something risky.
 
 ## Conventions
 
@@ -134,4 +134,4 @@ preview`), so it is slow — a minute or two. Run unit tests during development 
 - Bump `Card.updatedAt` when recording a quiz answer (spec §4.2).
 - Leave `console.log` in committed code.
 - Commit with a failing or skipped test. If a test must be disabled, explain why in the
-  PR and in the plan file.
+  commit message and in the plan file.

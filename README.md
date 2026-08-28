@@ -66,7 +66,8 @@ root, the Vite `base` and the PWA manifest `scope` are both `/`; dropping the cu
 domain means setting both back to `/cardio/`.
 
 CI (`.github/workflows/ci.yml`) runs lint, format check, typecheck, unit tests with
-coverage, the production build, and Playwright on every pull request.
+coverage, the production build, and Playwright on every push to `main` and on any pull
+request.
 
 ## Licence
 
