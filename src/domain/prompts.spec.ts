@@ -10,6 +10,7 @@ import {
   libraryLabel,
   masteryHeadline,
   masteryLabel,
+  quizSignoff,
   repairNotes,
   replaceEverythingPrompt,
   storedPrompt,
@@ -196,5 +197,66 @@ describe('cardMasteryLabel', () => {
 
   it('names a card nobody has answered rather than leaving `new` unexplained', () => {
     expect(cardMasteryLabel('new', 0)).toBe('Not attempted yet')
+  })
+})
+
+describe('quizSignoff', () => {
+  /** Picks the item at `at` out of however many a list holds. */
+  const picks = (at: number) => (): number => at / 100
+
+  it('opens with one of the sign-off headlines', () => {
+    expect(quizSignoff({ answered: 5, got: 5 }, picks(0)).headline).toBe('All done! 💪🏻')
+  })
+
+  it('walks the headlines with the random number it is given', () => {
+    expect(quizSignoff({ answered: 5, got: 5 }, picks(80)).headline).toBe("And we're done. 🙌🏻")
+  })
+
+  it('congratulates a session with nothing missed', () => {
+    expect(quizSignoff({ answered: 5, got: 5 }, picks(0)).verdict).toBe('Nailed them all!')
+  })
+
+  it('keeps the perfect verdict for perfect, not for a score that rounds to it', () => {
+    expect(quizSignoff({ answered: 200, got: 199 }, picks(0)).verdict).toBe('Not terrible!')
+  })
+
+  it('is encouraging above 60%', () => {
+    expect(quizSignoff({ answered: 3, got: 2 }, picks(0)).verdict).toBe('Not terrible!')
+  })
+
+  it('takes exactly 60% as the band below', () => {
+    expect(quizSignoff({ answered: 5, got: 3 }, picks(0)).verdict).toBe(
+      "At least they weren't ALL wrong! 😏",
+    )
+  })
+
+  it('is consoling above 20%', () => {
+    expect(quizSignoff({ answered: 4, got: 1 }, picks(0)).verdict).toBe(
+      "At least they weren't ALL wrong! 😏",
+    )
+  })
+
+  it('takes exactly 20% as the band below', () => {
+    expect(quizSignoff({ answered: 5, got: 1 }, picks(0)).verdict).toBe(
+      'The journey of 1000 miles begins with a single step. 🏃🏻‍♂️',
+    )
+  })
+
+  it('finds something to say when everything was missed', () => {
+    expect(quizSignoff({ answered: 5, got: 0 }, picks(0)).verdict).toBe(
+      'The journey of 1000 miles begins with a single step. 🏃🏻‍♂️',
+    )
+  })
+
+  it('walks the verdicts with the random number it is given', () => {
+    expect(quizSignoff({ answered: 5, got: 5 }, picks(80)).verdict).toBe(
+      '100%! That deserves some baby animals. 🐣🐶🐱',
+    )
+  })
+
+  it('has no perfect verdict for a session that answered nothing', () => {
+    expect(quizSignoff({ answered: 0, got: 0 }, picks(0)).verdict).toBe(
+      'The journey of 1000 miles begins with a single step. 🏃🏻‍♂️',
+    )
   })
 })

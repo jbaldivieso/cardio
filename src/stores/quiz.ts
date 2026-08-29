@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 import type { Card, CardStats, QuizDirection } from '@/domain/models'
+import { quizSignoff } from '@/domain/prompts'
+import type { QuizSignoff } from '@/domain/prompts'
 import { buildSession, defaultQuizConfig, parseQuizConfig, shuffle } from '@/domain/quiz'
 import type { QuizConfig } from '@/domain/quiz'
 import { useErrorSurface } from '@/stores/errors'
@@ -76,6 +78,13 @@ export const useQuizStore = defineStore('quiz', () => {
   const undoable = shallowRef<UndoSnapshot | null>(null)
   const origin = ref<RouteLocationRaw>(DEFAULT_ORIGIN)
   /**
+   * The two lines over the summary's numbers (§6.6), drawn once when the
+   * session completes rather than on every read: a computed would deal the
+   * reader a new headline each time the screen re-rendered. Non-null exactly
+   * while the phase is `complete`.
+   */
+  const signoff = shallowRef<QuizSignoff | null>(null)
+  /**
    * True while a grade or an undo is being written. Both read the session,
    * await IndexedDB and only then move it, so without this a second grade
    * arriving first — a double tap, or Space re-activating the button the
@@ -111,6 +120,7 @@ export const useQuizStore = defineStore('quiz', () => {
     flipped.value = false
     answers.value = []
     undoable.value = null
+    signoff.value = null
     phase.value = 'running'
   }
 
@@ -153,6 +163,7 @@ export const useQuizStore = defineStore('quiz', () => {
     undoable.value = snapshot
     flipped.value = false
     if (index.value + 1 >= cards.value.length) {
+      signoff.value = quizSignoff(summary.value, Math.random)
       phase.value = 'complete'
       return
     }
@@ -234,6 +245,7 @@ export const useQuizStore = defineStore('quiz', () => {
     index.value = 0
     flipped.value = false
     undoable.value = null
+    signoff.value = null
   }
 
   return {
@@ -250,6 +262,7 @@ export const useQuizStore = defineStore('quiz', () => {
     position,
     canUndo,
     summary,
+    signoff,
     start,
     launch,
     quickstart,

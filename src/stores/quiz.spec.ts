@@ -218,6 +218,65 @@ describe('quiz store', () => {
     })
   })
 
+  describe('signoff', () => {
+    it('has nothing to say until a session finishes', async () => {
+      const store = useQuizStore()
+      store.start(pool, configFor())
+
+      await answerCard(true)
+
+      expect(store.signoff).toBeNull()
+    })
+
+    it('draws a headline and a verdict fitting the score when the session ends', async () => {
+      vi.spyOn(Math, 'random').mockReturnValue(0)
+      const store = useQuizStore()
+      store.start(pool, configFor())
+
+      await answerCard(true)
+      await answerCard(true)
+      await answerCard(true)
+
+      expect(store.signoff).toEqual({ headline: 'All done! 💪🏻', verdict: 'Nailed them all!' })
+    })
+
+    it('reads the score, not the accuracy on screen', async () => {
+      vi.spyOn(Math, 'random').mockReturnValue(0)
+      const store = useQuizStore()
+      store.start(pool, configFor())
+
+      await answerCard(true)
+      await answerCard(false)
+      await answerCard(true)
+
+      expect(store.signoff?.verdict).toBe('Not terrible!')
+    })
+
+    it('is cleared by abandoning the session', async () => {
+      const store = useQuizStore()
+      store.start(pool, configFor())
+      await answerCard(true)
+      await answerCard(true)
+      await answerCard(true)
+
+      store.abandon()
+
+      expect(store.signoff).toBeNull()
+    })
+
+    it('is cleared by starting a second pass over the missed cards', async () => {
+      const store = useQuizStore()
+      store.start(pool, configFor())
+      await answerCard(false)
+      await answerCard(true)
+      await answerCard(true)
+
+      store.quizMissed()
+
+      expect(store.signoff).toBeNull()
+    })
+  })
+
   describe('undo', () => {
     it('is unavailable on the first card', () => {
       const store = useQuizStore()

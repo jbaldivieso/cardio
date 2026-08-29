@@ -64,6 +64,16 @@ describe('QuizSummaryView', () => {
     return missed
   }
 
+  it('signs the session off with the lines the store drew', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    await completeQuiz()
+
+    const wrapper = await mountSummary()
+
+    expect(wrapper.get('[data-testid="summary-headline"]').text()).toBe('All done! 💪🏻')
+    expect(wrapper.get('[data-testid="summary-verdict"]').text()).toBe('Not terrible!')
+  })
+
   it('reports what was answered', async () => {
     await completeQuiz()
 

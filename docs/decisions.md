@@ -1183,3 +1183,38 @@ navigation taps and gained a step that goes home on purpose, because the list a 
 gives way to (ADR-047) is no longer somewhere the happy path passes through on its own.
 Deleting the folder or deck a user just made still takes them nowhere; only creating
 moves the screen.
+
+## ADR-057 — The quiz summary signs off at random
+
+**Decision.** The summary opens with two lines instead of the fixed heading "Quiz
+complete": a headline drawn from five ("All done! 💪🏻", "That's a wrap. 👏🏻", …) and a
+verdict drawn from one of four banded lists — everything got, better than 60%, better
+than 20%, and the rest. `quizSignoff()` in `src/domain/prompts.ts` holds the copy and
+takes the RNG as a parameter (ADR-015); the store draws both the moment the phase turns
+`complete` and holds them in a ref.
+
+**Why.** The numbers on this screen already say what happened, precisely and without
+affect, and a heading that repeats them in words earns nothing. What the screen was
+missing is a reaction — the thing a person would say. Varying the line is what keeps it
+from becoming furniture: a quiz is a thing you finish many times a week, and a fixed joke
+read for the fortieth time is worse than no joke. Banding the verdict on the score is
+what stops the tone from landing wrong; congratulating a session that missed four cards
+in five would read as sarcasm from a screen that cannot tell.
+
+**Why the store draws it, not the view.** A computed would deal a fresh headline on every
+re-render, so the line would change under the reader when anything else on the screen
+updated. Drawing once at completion also puts the draw where the RNG already lives —
+`src/domain/` may not call `Math.random` at all, and the view is meant to be thin.
+
+**Why the bands read the unrounded percentage.** Accuracy on screen is
+`round(100 × gets / answered)`, so 199 of 200 shows as 100%. "Nailed them all!" over a
+list containing a missed card is a lie the user can see, so the perfect band tests
+`gets === answered` in effect rather than the rounded number it sits above.
+
+**Consequence.** The summary's heading is no longer a stable string, so nothing may
+assert on it — the e2e and component tests reach the screen by `data-testid` and by the
+totals, which they already did. The copy is English and jokes about American snack
+laxatives and 1990s sitcoms, which i18n would have to throw away wholesale; i18n is out
+of scope (§2). "You got them all!" still appears below the (empty) missed list when
+nothing was missed, one notification under a perfect verdict; it stays because it is the
+missed list's empty state, answering a different question than the sign-off does.

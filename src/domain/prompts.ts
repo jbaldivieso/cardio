@@ -1,8 +1,9 @@
 /**
  * Wording that has to be exact: the destructive confirmations (spec §4.4, §7.8),
  * the mastery bar's own two sentences (§7.9) and what an import says about a
- * file before it loads it (§10). Pure, so what a screen says is assertable
- * without mounting anything.
+ * file before it loads it (§10) — and, at the other end, the one thing here
+ * that is deliberately not fixed: the sign-off over a finished quiz (§6.6).
+ * Pure, so what a screen says is assertable without mounting anything.
  */
 
 import type { MasterySummary } from '@/domain/aggregates'
@@ -110,4 +111,86 @@ export function repairNotes(repairs: BackupRepairs): string[] {
  */
 export function cardMasteryLabel(band: MasteryBand, score: number): string {
   return band === 'new' ? 'Not attempted yet' : `${score}% mastered`
+}
+
+/** The five ways a finished session announces itself (§6.6). */
+const SIGNOFF_HEADLINES = [
+  'All done! 💪🏻',
+  'You did it. 🤘🏻',
+  "That's a wrap. 👏🏻",
+  "That's the quiz. 👍🏻",
+  "And we're done. 🙌🏻",
+]
+
+/** Nothing missed. */
+const PERFECT = [
+  'Nailed them all!',
+  '100% Way to go, Urkel! 🤓',
+  "100%! Either you're getting too smart or these are getting too easy.",
+  '100%! Smooth move, Ex-Lax!',
+  '100%! That deserves some baby animals. 🐣🐶🐱',
+]
+
+/** Better than 60%. */
+const GOOD = [
+  'Not terrible!',
+  'Progress, I guess!',
+  "Let's call that a passing grade.",
+  "You're getting there.",
+  'Not bad, not bad at all.',
+]
+
+/** Better than 20%. */
+const FAIR = [
+  "At least they weren't ALL wrong! 😏",
+  "You're getting there. Slowly but surely. 🐛",
+  'And next time will be even better, surely. ☺️',
+  'Practice makes perfect?',
+]
+
+/** Everything else, including a session that answered nothing. */
+const POOR = [
+  'The journey of 1000 miles begins with a single step. 🏃🏻‍♂️',
+  "I mean, if you already knew all of these, you wouldn't be using a fine app like Cardio®, am I right? 😎",
+  'Well, at least now we know which ones to work on! 😁',
+  'The areas for improvement are coming into focus. 🧐',
+  '🥴 but also 😣',
+  "This won't count toward your final grade.",
+]
+
+/** What the sign-off needs to know about the session it is closing (§6.6). */
+export interface QuizScore {
+  answered: number
+  got: number
+}
+
+/** The two lines over a finished quiz's numbers (§6.6). */
+export interface QuizSignoff {
+  headline: string
+  verdict: string
+}
+
+/** One of `lines`, uniformly. `rng` is in [0, 1), as `Math.random` is. */
+function pick(lines: string[], rng: () => number): string {
+  return lines[Math.floor(rng() * lines.length)]
+}
+
+function verdicts(pct: number): string[] {
+  if (pct === 100) return PERFECT
+  if (pct > 60) return GOOD
+  if (pct > 20) return FAIR
+  return POOR
+}
+
+/**
+ * A headline and a verdict for a finished session, each drawn at random from
+ * the lines its score qualifies for (§6.6, ADR-057).
+ *
+ * The bands read the unrounded percentage rather than the accuracy the summary
+ * shows: 199 of 200 rounds to 100% on screen, and telling that session it
+ * nailed them all would be a lie about the one it missed.
+ */
+export function quizSignoff(score: QuizScore, rng: () => number): QuizSignoff {
+  const pct = score.answered === 0 ? 0 : (100 * score.got) / score.answered
+  return { headline: pick(SIGNOFF_HEADLINES, rng), verdict: pick(verdicts(pct), rng) }
 }

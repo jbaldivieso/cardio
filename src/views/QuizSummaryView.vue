@@ -22,7 +22,8 @@ async function done(): Promise<void> {
 
 <template>
   <section v-if="quiz.phase === 'complete'" class="section">
-    <h1 class="title is-4">Quiz complete</h1>
+    <h1 class="title is-4 mb-2" data-testid="summary-headline">{{ quiz.signoff?.headline }}</h1>
+    <p class="subtitle is-6" data-testid="summary-verdict">{{ quiz.signoff?.verdict }}</p>
 
     <div class="level is-mobile mb-4" data-testid="summary-totals">
       <div class="level-item has-text-centered">

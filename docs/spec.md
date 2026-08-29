@@ -370,8 +370,14 @@ one-entry undo snapshot of the previous card's pre-answer `CardStats`.
 
 ### 6.6 Summary
 
-On completion show: cards answered, gets, misses, accuracy (`round(100 * gets / answered)`),
-and the list of missed cards (front rendered, truncated). Two actions: **Quiz the missed
+On completion show: a sign-off, cards answered, gets, misses, accuracy
+(`round(100 * gets / answered)`), and the list of missed cards (front rendered, truncated).
+
+The sign-off is a headline drawn at random from five, and under it a verdict drawn at
+random from the band the score falls in — everything got, better than 60%, better than
+20%, or the rest. The bands read `gets / answered` unrounded, so only a session that
+missed nothing is told it missed nothing. Both lines are drawn once, when the session
+completes, and do not change while the screen is read (ADR-057). Two actions: **Quiz the missed
 cards** — builds a new session from exactly those cards, same direction, tier and size
 rules bypassed, order shuffled — and **Done**, returning to where the quiz started.
 
