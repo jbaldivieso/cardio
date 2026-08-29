@@ -75,8 +75,15 @@ async function submitName(name: string): Promise<void> {
     open.kind === 'create'
       ? await library.createDeck(props.folderId, name)
       : await library.renameDeck(open.deck.id, name)
-  if (saved) openDialog(null)
-  else dialogError.value = library.error
+  if (!saved) {
+    dialogError.value = library.error
+    return
+  }
+  openDialog(null)
+  // A new deck is empty, and cards are added on the deck screen: creating one
+  // opens it rather than leaving it to be found again in the list (ADR-056). A
+  // rename stays where it is.
+  if (open.kind === 'create') await router.push({ name: 'deck', params: { deckId: saved.id } })
 }
 
 async function submitMove(target: string): Promise<void> {

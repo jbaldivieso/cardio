@@ -44,30 +44,38 @@ test('creates a library, quizzes a deck and sees its mastery move', async ({ pag
     await expect(page.getByTestId('folder-row')).toHaveCount(0)
   })
 
-  await test.step('creates the folder Spanish from the splash', async () => {
+  await test.step('creates the folder Spanish from the splash and lands inside it', async () => {
     await page.getByTestId('splash-create').click()
     await page.getByTestId('name-input').fill('Spanish')
     await page.getByTestId('name-save').click()
-    await expect(page.getByRole('link', { name: 'Spanish' })).toBeVisible()
-    // The splash gives way to the list, which holds the one folder there is.
-    await expect(page.getByTestId('folder-row')).toHaveCount(1)
+
+    // A new folder opens on creation, holding nothing yet (ADR-056).
+    await expect(page).toHaveURL(/#\/folders\//)
+    await expect(page.getByRole('heading', { name: 'Spanish' })).toBeVisible()
+    await expect(page.getByTestId('decks-empty')).toBeVisible()
   })
 
-  await test.step('creates the deck Verbs inside it', async () => {
+  await test.step('shows the folder in the list the splash gave way to', async () => {
+    await page.getByTestId('breadcrumb-home').click()
+    await expect(page.getByTestId('library-splash')).toBeHidden()
+    await expect(page.getByTestId('folder-row')).toHaveCount(1)
+
     await page.getByRole('link', { name: 'Spanish' }).click()
     await expect(page).toHaveURL(/#\/folders\//)
+  })
 
+  await test.step('creates the deck Verbs inside it and lands inside that', async () => {
     await page.getByTestId('new-deck').click()
     await page.getByTestId('name-input').fill('Verbs')
     await page.getByTestId('name-save').click()
-    await expect(deckRow.getByTestId('deck-link')).toHaveText('Verbs')
-    await expect(deckRow.getByTestId('deck-count')).toHaveText('0 cards')
+
+    // A new deck opens too, on the screen its cards are added from (ADR-056).
+    await expect(page).toHaveURL(/#\/decks\//)
+    await expect(page.getByRole('heading', { name: 'Verbs' })).toBeVisible()
+    await expect(page.getByTestId('cards-empty')).toBeVisible()
   })
 
   await test.step('bulk-adds three cards', async () => {
-    await deckRow.getByTestId('deck-link').click()
-    await expect(page).toHaveURL(/#\/decks\//)
-
     await page.getByTestId('bulk-add').click()
     await page.getByTestId('bulk-text').fill(CARDS.map((c) => `${c.front}|${c.back}`).join('\n'))
     await expect(page.getByTestId('bulk-summary')).toHaveText('3 cards ready, 0 lines skipped')

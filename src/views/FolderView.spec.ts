@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
+import type { Router } from 'vue-router'
 import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
 import { routes } from '@/router'
@@ -13,6 +14,8 @@ import FolderView from '@/views/FolderView.vue'
 
 describe('FolderView', () => {
   useTestDatabase()
+  /** The screen pushes routes of its own, so a test can read where it went. */
+  let router: Router
   /** The folder under test, empty until a test puts a deck in it. */
   let homeId: string
 
@@ -23,10 +26,11 @@ describe('FolderView', () => {
 
   async function mountView(folderId: string): Promise<VueWrapper> {
     const store = useLibraryStore()
-    // The screen navigates when a quiz starts, so it needs a real router even
-    // though its links are stubbed for the assertions below.
-    const router = createRouter({ history: createMemoryHistory(), routes })
-    await router.push('/')
+    // The screen navigates when a quiz starts and when a deck is created, so it
+    // needs a real router even though its links are stubbed for the assertions
+    // below.
+    router = createRouter({ history: createMemoryHistory(), routes })
+    await router.push({ name: 'folder', params: { folderId } })
     await router.isReady()
     const wrapper = mount(FolderView, {
       props: { folderId },
@@ -151,6 +155,31 @@ describe('FolderView', () => {
     await wrapper.get('[data-testid="name-save"]').trigger('click')
 
     await vi.waitFor(() => expect(rows(wrapper)[0].text()).toContain('Verbs'))
+  })
+
+  it('opens the deck it just created', async () => {
+    const wrapper = await mountView(homeId)
+
+    await wrapper.get('[data-testid="new-deck"]').trigger('click')
+    await wrapper.get('[data-testid="name-input"]').setValue('Verbs')
+    await wrapper.get('[data-testid="name-save"]').trigger('click')
+
+    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('deck'))
+    const created = useLibraryStore().decks.find((deck) => deck.name === 'Verbs')
+    expect(router.currentRoute.value.params.deckId).toBe(created?.id)
+  })
+
+  it('stays in the folder after renaming a deck', async () => {
+    await repositories.decks.create(homeId, 'Verbz', 1000)
+    const wrapper = await mountView(homeId)
+
+    await openRowMenu(wrapper)
+    await rows(wrapper)[0].get('[data-testid="deck-rename"]').trigger('click')
+    await wrapper.get('[data-testid="name-input"]').setValue('Verbs')
+    await wrapper.get('[data-testid="name-save"]').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('folder')
   })
 
   it('renames a deck through the rename dialog', async () => {

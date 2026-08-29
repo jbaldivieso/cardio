@@ -1160,3 +1160,26 @@ deliberate work. At a favicon's 16 px the character is a shape rather than a fac
 simplified mark for that size would be a separate piece of design. `theme_color` is still
 Bulma's `#00d1b2`, which matches neither the Grove palette nor the logo's green, and is
 left for whoever decides what the browser chrome should be.
+
+## ADR-056 — Creating a folder or a deck opens it
+
+**New folder** on the home screen pushes `folder`, and **New deck** on a folder screen
+pushes `deck`, as soon as the write lands. A rename does not navigate, and neither does a
+failed create — the dialog stays up with the name still in it (ADR-025).
+
+**Why.** Both things are containers, and a new one is empty. Nobody creates a folder to
+look at a folder: they create it to put a deck in, and the deck to put cards in. Landing
+back on the list meant the user's next action was always to find the thing they had just
+named — in a list sorted by name, so a new folder can appear anywhere in it — and press
+it. That is one wasted read and one wasted tap on the one screen where what happens next
+is not in doubt. Creating is the only action here whose result has an obvious inside; a
+rename leaves the user looking at a list that is still the thing they wanted, so it stays
+put.
+
+**Consequence.** The empty states of §7.2 and §7.3 now do most of their work immediately
+after a create rather than on a return visit — "No decks in this folder yet" is the first
+thing a new folder says, which is where it belongs. The end-to-end journey lost two
+navigation taps and gained a step that goes home on purpose, because the list a splash
+gives way to (ADR-047) is no longer somewhere the happy path passes through on its own.
+Deleting the folder or deck a user just made still takes them nowhere; only creating
+moves the screen.

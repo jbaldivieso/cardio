@@ -47,6 +47,10 @@ test('opens a row overflow menu onto the screen, whatever the row is called', as
     await page.getByTestId('splash-create').click()
     await page.getByTestId('name-input').fill(LONG_NAME)
     await page.getByTestId('name-save').click()
+
+    // Creating a folder opens it (ADR-056); the row under test is on the list.
+    await expect(page).toHaveURL(/#\/folders\//)
+    await page.getByTestId('breadcrumb-home').click()
     await expect(page.getByRole('link', { name: LONG_NAME })).toBeVisible()
 
     await page.getByTestId('folder-menu').click()
@@ -63,6 +67,10 @@ test('opens a row overflow menu onto the screen, whatever the row is called', as
       await page.getByTestId('new-deck').click()
       await page.getByTestId('name-input').fill(name)
       await page.getByTestId('name-save').click()
+
+      // The new deck opens as well, so the folder's list is a crumb back.
+      await expect(page).toHaveURL(/#\/decks\//)
+      await page.getByTestId('breadcrumb').getByRole('link', { name: LONG_NAME }).click()
       await expect(page.getByRole('link', { name })).toBeVisible()
     }
 

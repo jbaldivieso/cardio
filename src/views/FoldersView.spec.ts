@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
+import type { Router } from 'vue-router'
 import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
 import { routes } from '@/router'
@@ -12,6 +13,8 @@ import FoldersView from '@/views/FoldersView.vue'
 
 describe('FoldersView', () => {
   const test = useTestDatabase()
+  /** The screen pushes routes of its own, so a test can read where it went. */
+  let router: Router
 
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -19,9 +22,9 @@ describe('FoldersView', () => {
 
   async function mountView(): Promise<VueWrapper> {
     const store = useLibraryStore()
-    // The screen navigates when a quiz starts, so it needs a real router even
-    // though its links are stubbed.
-    const router = createRouter({ history: createMemoryHistory(), routes })
+    // The screen navigates when a quiz starts and when a folder is created, so
+    // it needs a real router even though its links are stubbed.
+    router = createRouter({ history: createMemoryHistory(), routes })
     await router.push('/')
     await router.isReady()
     const wrapper = mount(FoldersView, {
@@ -185,6 +188,32 @@ describe('FoldersView', () => {
 
     await vi.waitFor(() => expect(rows(wrapper)[0].text()).toContain('Anatomy'))
     expect(wrapper.find('[data-testid="name-dialog"]').exists()).toBe(false)
+  })
+
+  it('opens the folder it just created', async () => {
+    await seedStartedLibrary()
+    const wrapper = await mountView()
+
+    await wrapper.get('[data-testid="new-folder"]').trigger('click')
+    await wrapper.get('[data-testid="name-input"]').setValue('Anatomy')
+    await wrapper.get('[data-testid="name-save"]').trigger('click')
+
+    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('folder'))
+    const created = useLibraryStore().folders.find((folder) => folder.name === 'Anatomy')
+    expect(router.currentRoute.value.params.folderId).toBe(created?.id)
+  })
+
+  it('stays on the list after renaming a folder', async () => {
+    await repositories.folders.create('Spanihs', 1000)
+    const wrapper = await mountView()
+
+    await openRowMenu(wrapper)
+    await rows(wrapper)[0].get('[data-testid="folder-rename"]').trigger('click')
+    await wrapper.get('[data-testid="name-input"]').setValue('Spanish')
+    await wrapper.get('[data-testid="name-save"]').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('home')
   })
 
   it('keeps the name dialog open, with the reason, when the write fails', async () => {

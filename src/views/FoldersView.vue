@@ -64,8 +64,15 @@ async function submitName(name: string): Promise<void> {
     open.kind === 'create'
       ? await library.createFolder(name)
       : await library.renameFolder(open.folder.id, name)
-  if (saved) openDialog(null)
-  else dialogError.value = library.error
+  if (!saved) {
+    dialogError.value = library.error
+    return
+  }
+  openDialog(null)
+  // A folder exists to hold decks, and a new one holds none: the next thing to
+  // do is inside it, so creating one opens it rather than leaving it to be
+  // found again in the list (ADR-056). A rename stays where it is.
+  if (open.kind === 'create') await router.push({ name: 'folder', params: { folderId: saved.id } })
 }
 
 /** Quickstart across every deck in the folder, on the §6.1 defaults (§7.1). */
