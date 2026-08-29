@@ -157,7 +157,7 @@ async function confirmDelete(): Promise<void> {
 
       <div v-if="decks.length === 0" class="notification" data-testid="decks-empty">
         <p class="has-text-weight-semibold">No decks in this folder yet.</p>
-        <p>A deck holds the cards you quiz on. Create your first deck to start adding cards.</p>
+        <p>Decks hold flash cards. Create your first deck to start adding cards.</p>
       </div>
     </template>
 
