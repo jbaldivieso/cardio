@@ -95,7 +95,7 @@ describe('QuizSummaryView', () => {
     expect(rows[0].html()).toContain(`<strong>${missed.front.replaceAll('*', '')}</strong>`)
   })
 
-  it('says so when nothing was missed', async () => {
+  it('offers no second pass when nothing was missed', async () => {
     const store = useQuizStore()
     store.start(pool, { ...config, deckIds: [deckId] }, { name: 'deck', params: { deckId } })
     for (let i = 0; i < 3; i++) {

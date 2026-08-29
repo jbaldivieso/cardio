@@ -71,9 +71,6 @@ async function done(): Promise<void> {
         </li>
       </ul>
     </template>
-    <p v-else class="notification is-success is-light" data-testid="summary-clean">
-      You got them all!
-    </p>
 
     <div class="is-flex is-flex-wrap-wrap is-gap-2">
       <button

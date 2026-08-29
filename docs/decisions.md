@@ -1215,6 +1215,6 @@ list containing a missed card is a lie the user can see, so the perfect band tes
 assert on it — the e2e and component tests reach the screen by `data-testid` and by the
 totals, which they already did. The copy is English and jokes about American snack
 laxatives and 1990s sitcoms, which i18n would have to throw away wholesale; i18n is out
-of scope (§2). "You got them all!" still appears below the (empty) missed list when
-nothing was missed, one notification under a perfect verdict; it stays because it is the
-missed list's empty state, answering a different question than the sign-off does.
+of scope (§2). The missed list's old empty state — a green "You got them all!" — is gone
+with this: the perfect verdict directly above it already says so, and two congratulations
+in a column read as one too many.
