@@ -5,7 +5,6 @@ import type { Router } from 'vue-router'
 import { flushPromises, mount } from '@vue/test-utils'
 import type { RouterLinkStub } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
-import { UNSORTED_FOLDER_ID, seedDefaults } from '@/db'
 import { routes } from '@/router'
 import { useCardsStore } from '@/stores/cards'
 import { useLibraryStore } from '@/stores/library'
@@ -15,15 +14,15 @@ import { useTestDatabase } from '@/test/repositories'
 import DeckView from '@/views/DeckView.vue'
 
 describe('DeckView', () => {
-  const test = useTestDatabase()
+  useTestDatabase()
   let router: Router
   let deckId: string
 
   beforeEach(async () => {
     setActivePinia(createPinia())
     router = createRouter({ history: createMemoryHistory(), routes })
-    await seedDefaults(test.db, 1000)
-    deckId = (await repositories.decks.create(UNSORTED_FOLDER_ID, 'Verbs', 1000)).id
+    const folder = await repositories.folders.create('Spanish', 1000)
+    deckId = (await repositories.decks.create(folder.id, 'Verbs', 1000)).id
   })
 
   async function mountView(id = deckId): Promise<VueWrapper> {
@@ -53,7 +52,7 @@ describe('DeckView', () => {
         .get('[data-testid="breadcrumb"]')
         .findAll('li')
         .map((crumb) => crumb.text()),
-    ).toEqual(['Folders', 'Unsorted', 'Verbs'])
+    ).toEqual(['Folders', 'Spanish', 'Verbs'])
   })
 
   it('renders each card front as markdown', async () => {
@@ -181,18 +180,14 @@ describe('DeckView', () => {
       expect(quiz.origin).toEqual({ name: 'deck', params: { deckId } })
     })
 
-    it('will not quickstart a deck with no cards', async () => {
+    it('offers no quickstart on a deck with no cards', async () => {
       const wrapper = await mountView()
 
-      const button = wrapper.get('[data-testid="deck-quiz"]')
-      await button.trigger('click')
-      await flushPromises()
-
-      expect(button.attributes('aria-disabled')).toBe('true')
-      expect(useQuizStore().phase).toBe('configuring')
+      expect(wrapper.find('[data-testid="deck-quiz"]').exists()).toBe(false)
     })
 
     it('offers a custom quiz over this deck', async () => {
+      await repositories.cards.create(deckId, { front: 'ser', back: 'to be' }, 1000)
       const wrapper = await mountView()
 
       const link = wrapper.getComponent<typeof RouterLinkStub>('[data-testid="deck-custom-quiz"]')
@@ -200,6 +195,12 @@ describe('DeckView', () => {
         name: 'quiz-configure',
         query: { deck: deckId },
       })
+    })
+
+    it('offers no custom quiz over a deck with no cards', async () => {
+      const wrapper = await mountView()
+
+      expect(wrapper.find('[data-testid="deck-custom-quiz"]').exists()).toBe(false)
     })
   })
 })

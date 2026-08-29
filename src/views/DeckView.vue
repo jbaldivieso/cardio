@@ -41,11 +41,14 @@ onMounted(() => {
   mastery.tick()
 })
 
-/** §7.3's Quiz action: the same one-tap quickstart as the deck's row (§6.1). */
+/**
+ * §7.3's Quiz action: the same one-tap quickstart as the deck's row (§6.1). An
+ * empty deck offers neither it nor the custom quiz beside it — there is nothing
+ * to draw a quiz from either way (ADR-054).
+ */
 const quizzable = computed(() => cards.cards.length > 0)
 
 async function quizDeck(): Promise<void> {
-  if (!quizzable.value) return
   const from = { name: 'deck', params: { deckId: props.deckId } }
   if (await quiz.quickstart([props.deckId], from)) await router.push({ name: 'quiz-run' })
 }
@@ -111,25 +114,23 @@ async function confirmDelete(): Promise<void> {
       >
         <h1 class="title is-4 mb-0">{{ deck.name }}</h1>
         <div class="is-flex is-flex-wrap-wrap is-gap-2">
-          <button
-            type="button"
-            class="button is-primary is-light cardio-action"
-            :class="{ 'is-static': !quizzable }"
-            :aria-disabled="quizzable ? 'false' : 'true'"
-            aria-describedby="deck-quiz-reason"
-            :title="quizzable ? undefined : 'This deck has no cards to quiz yet.'"
-            data-testid="deck-quiz"
-            @click="quizDeck"
-          >
-            Quiz
-          </button>
-          <RouterLink
-            class="button cardio-action"
-            :to="{ name: 'quiz-configure', query: { deck: deckId } }"
-            data-testid="deck-custom-quiz"
-          >
-            Custom quiz
-          </RouterLink>
+          <template v-if="quizzable">
+            <button
+              type="button"
+              class="button is-primary is-light cardio-action"
+              data-testid="deck-quiz"
+              @click="quizDeck"
+            >
+              Quiz
+            </button>
+            <RouterLink
+              class="button cardio-action"
+              :to="{ name: 'quiz-configure', query: { deck: deckId } }"
+              data-testid="deck-custom-quiz"
+            >
+              Custom quiz
+            </RouterLink>
+          </template>
           <button
             type="button"
             class="button cardio-action"
@@ -146,9 +147,6 @@ async function confirmDelete(): Promise<void> {
             New card
           </RouterLink>
         </div>
-        <span id="deck-quiz-reason" class="is-sr-only">
-          {{ quizzable ? 'Quiz this deck.' : 'This deck has no cards to quiz yet.' }}
-        </span>
       </div>
 
       <CardRow

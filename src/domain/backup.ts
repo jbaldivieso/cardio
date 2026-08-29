@@ -4,7 +4,7 @@
  * reading and writing rows is `src/db`'s job.
  */
 
-import { MASTERY_HISTORY_LIMIT, UNSORTED_FOLDER_ID } from '@/domain/models'
+import { MASTERY_HISTORY_LIMIT } from '@/domain/models'
 import type { Attempt, Card, CardStats, Deck, Folder } from '@/domain/models'
 import { validateFace, validateName, ValidationError } from '@/domain/validation'
 
@@ -41,9 +41,9 @@ export interface BackupFile extends LibraryData {
 
 /** What validation had to put right to make the file loadable (§10). */
 export interface BackupRepairs {
-  /** Decks whose folder was missing, re-homed to Unsorted. */
-  rehomedDecks: number
-  /** Cards whose deck was missing, dropped. */
+  /** Decks whose folder was missing, dropped. */
+  rejectedDecks: number
+  /** Cards with no deck left to belong to, dropped. */
   rejectedCards: number
 }
 
@@ -282,9 +282,9 @@ function readArray(file: Record<string, unknown>, key: string, errors: string[])
 /**
  * Everything §10 asks of an import, before a single row is written: the right
  * app, a version this build understands, all three tables, and every row passing
- * §4.2. References are repaired rather than refused — a deck with no folder
- * lands in Unsorted, a card with no deck is dropped and counted — because a
- * library that is nearly right is still worth having back.
+ * §4.2. References are repaired rather than refused — a row with nothing to
+ * belong to is dropped and counted — because a library that is nearly right is
+ * still worth having back.
  */
 export function validateBackup(json: string): BackupValidation {
   let parsed: unknown
@@ -321,16 +321,11 @@ export function validateBackup(json: string): BackupValidation {
   const cards = readTable(cardRows, 'Card', errors, readCard)
   if (errors.length > 0) return { ok: false, errors }
 
+  // Every folder in the library is one someone made, so a deck whose folder the
+  // file does not carry has nowhere to go and is dropped (ADR-050). Its cards go
+  // with it, and are counted among the cards left out.
   const folderIds = new Set(folders.map((folder) => folder.id))
-  let rehomedDecks = 0
-  // Unsorted counts as present whether or not the file carries it: the load
-  // re-seeds it (§10) and a merge lands in a library that already has it. A deck
-  // already pointing there has not been moved, so it is not a repair.
-  const homed = decks.map((deck) => {
-    if (folderIds.has(deck.folderId) || deck.folderId === UNSORTED_FOLDER_ID) return deck
-    rehomedDecks += 1
-    return { ...deck, folderId: UNSORTED_FOLDER_ID }
-  })
+  const homed = decks.filter((deck) => folderIds.has(deck.folderId))
 
   const deckIds = new Set(homed.map((deck) => deck.id))
   const kept = cards.filter((card) => deckIds.has(card.deckId))
@@ -338,6 +333,9 @@ export function validateBackup(json: string): BackupValidation {
   return {
     ok: true,
     data: { folders, decks: homed, cards: kept },
-    repairs: { rehomedDecks, rejectedCards: cards.length - kept.length },
+    repairs: {
+      rejectedDecks: decks.length - homed.length,
+      rejectedCards: cards.length - kept.length,
+    },
   }
 }

@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import { seedDefaults, UNSORTED_FOLDER_ID } from '@/db'
 import type { Card } from '@/domain/models'
 import { defaultQuizConfig } from '@/domain/quiz'
 import type { QuizConfig } from '@/domain/quiz'
@@ -12,7 +11,8 @@ import { useTestDatabase } from '@/test/repositories'
 const NOW = 7_000_000
 
 describe('quiz store', () => {
-  const test = useTestDatabase()
+  useTestDatabase()
+  let folderId: string
   let deckId: string
   let pool: Card[]
 
@@ -40,8 +40,8 @@ describe('quiz store', () => {
     setActivePinia(createPinia())
     vi.spyOn(Date, 'now').mockReturnValue(NOW)
     localStorage.clear()
-    await seedDefaults(test.db, 1000)
-    deckId = (await repositories.decks.create(UNSORTED_FOLDER_ID, 'Verbs', 1000)).id
+    folderId = (await repositories.folders.create('Spanish', 1000)).id
+    deckId = (await repositories.decks.create(folderId, 'Verbs', 1000)).id
     pool = await seedPool(3)
   })
 
@@ -420,7 +420,7 @@ describe('quiz store', () => {
 
     it('refuses to start a session with nothing in it', async () => {
       const store = useQuizStore()
-      const empty = (await repositories.decks.create(UNSORTED_FOLDER_ID, 'Empty', 1000)).id
+      const empty = (await repositories.decks.create(folderId, 'Empty', 1000)).id
 
       const started = await store.launch(configFor({ deckIds: [empty] }), { name: 'home' })
 
@@ -455,7 +455,7 @@ describe('quiz store', () => {
 
     it('does not start on a deck with no cards', async () => {
       const store = useQuizStore()
-      const empty = (await repositories.decks.create(UNSORTED_FOLDER_ID, 'Empty', 1000)).id
+      const empty = (await repositories.decks.create(folderId, 'Empty', 1000)).id
 
       expect(await store.quickstart([empty], { name: 'home' })).toBe(false)
     })

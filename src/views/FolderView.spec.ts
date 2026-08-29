@@ -4,7 +4,6 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
 import { routes } from '@/router'
-import { seedDefaults, UNSORTED_FOLDER_ID } from '@/db'
 import { useLibraryStore } from '@/stores/library'
 import { useMasteryStore } from '@/stores/mastery'
 import { useQuizStore } from '@/stores/quiz'
@@ -13,11 +12,13 @@ import { useTestDatabase } from '@/test/repositories'
 import FolderView from '@/views/FolderView.vue'
 
 describe('FolderView', () => {
-  const test = useTestDatabase()
+  useTestDatabase()
+  /** The folder under test, empty until a test puts a deck in it. */
+  let homeId: string
 
   beforeEach(async () => {
     setActivePinia(createPinia())
-    await seedDefaults(test.db, 1000)
+    homeId = (await repositories.folders.create('German', 1000)).id
   })
 
   async function mountView(folderId: string): Promise<VueWrapper> {
@@ -39,6 +40,11 @@ describe('FolderView', () => {
 
   function rows(wrapper: VueWrapper) {
     return wrapper.findAll('[data-testid="deck-row"]')
+  }
+
+  /** Rename, move and delete live behind a row's overflow menu (§7.2). */
+  async function openRowMenu(wrapper: VueWrapper, index = 0): Promise<void> {
+    await rows(wrapper)[index].get('[data-testid="deck-menu"]').trigger('click')
   }
 
   it('shows the folder in a breadcrumb under Folders', async () => {
@@ -131,14 +137,14 @@ describe('FolderView', () => {
   })
 
   it('invites a first deck when the folder is empty', async () => {
-    const wrapper = await mountView(UNSORTED_FOLDER_ID)
+    const wrapper = await mountView(homeId)
 
     expect(rows(wrapper)).toHaveLength(0)
     expect(wrapper.get('[data-testid="decks-empty"]').text()).toContain('deck')
   })
 
   it('adds a deck through the new-deck dialog', async () => {
-    const wrapper = await mountView(UNSORTED_FOLDER_ID)
+    const wrapper = await mountView(homeId)
 
     await wrapper.get('[data-testid="new-deck"]').trigger('click')
     await wrapper.get('[data-testid="name-input"]').setValue('Verbs')
@@ -148,9 +154,10 @@ describe('FolderView', () => {
   })
 
   it('renames a deck through the rename dialog', async () => {
-    await repositories.decks.create(UNSORTED_FOLDER_ID, 'Verbz', 1000)
-    const wrapper = await mountView(UNSORTED_FOLDER_ID)
+    await repositories.decks.create(homeId, 'Verbz', 1000)
+    const wrapper = await mountView(homeId)
 
+    await openRowMenu(wrapper)
     await rows(wrapper)[0].get('[data-testid="deck-rename"]').trigger('click')
     await wrapper.get('[data-testid="name-input"]').setValue('Verbs')
     await wrapper.get('[data-testid="name-save"]').trigger('click')
@@ -158,11 +165,42 @@ describe('FolderView', () => {
     await vi.waitFor(() => expect(rows(wrapper)[0].text()).toContain('Verbs'))
   })
 
+  it('offers no Move on a deck when there is no other folder to move it to', async () => {
+    await repositories.decks.create(homeId, 'Verbs', 1000)
+    const wrapper = await mountView(homeId)
+
+    await openRowMenu(wrapper)
+
+    expect(rows(wrapper)[0].find('[data-testid="deck-move"]').exists()).toBe(false)
+    // The rest of the menu is still there; only the action with nowhere to go is not.
+    expect(rows(wrapper)[0].get('[data-testid="deck-rename"]').isVisible()).toBe(true)
+    expect(rows(wrapper)[0].get('[data-testid="deck-delete"]').isVisible()).toBe(true)
+  })
+
+  it('keeps rename, move and delete behind the row menu, leaving Quiz on the row', async () => {
+    await repositories.folders.create('Spanish', 1000)
+    const deck = await repositories.decks.create(homeId, 'Verbs', 1000)
+    await repositories.cards.create(deck.id, { front: 'ser', back: 'to be' }, 1000)
+    const wrapper = await mountView(homeId)
+
+    expect(rows(wrapper)[0].get('[data-testid="deck-quiz"]').isVisible()).toBe(true)
+    for (const action of ['deck-rename', 'deck-move', 'deck-delete']) {
+      expect(rows(wrapper)[0].find(`[data-testid="${action}"]`).exists()).toBe(false)
+    }
+
+    await openRowMenu(wrapper)
+
+    for (const action of ['deck-rename', 'deck-move', 'deck-delete']) {
+      expect(rows(wrapper)[0].get(`[data-testid="${action}"]`).isVisible()).toBe(true)
+    }
+  })
+
   it('moves a deck out of the folder through the move dialog', async () => {
     const other = await repositories.folders.create('Spanish', 1000)
-    await repositories.decks.create(UNSORTED_FOLDER_ID, 'Verbs', 1000)
-    const wrapper = await mountView(UNSORTED_FOLDER_ID)
+    await repositories.decks.create(homeId, 'Verbs', 1000)
+    const wrapper = await mountView(homeId)
 
+    await openRowMenu(wrapper)
     await rows(wrapper)[0].get('[data-testid="deck-move"]').trigger('click')
     await wrapper.get('[data-testid="move-select"]').setValue(other.id)
     await wrapper.get('[data-testid="move-save"]').trigger('click')
@@ -172,12 +210,13 @@ describe('FolderView', () => {
 
   it('keeps the move dialog open, with the reason, when the move fails', async () => {
     await repositories.folders.create('Spanish', 1000)
-    await repositories.decks.create(UNSORTED_FOLDER_ID, 'Verbs', 1000)
-    const wrapper = await mountView(UNSORTED_FOLDER_ID)
+    await repositories.decks.create(homeId, 'Verbs', 1000)
+    const wrapper = await mountView(homeId)
     vi.spyOn(repositories.decks, 'move').mockRejectedValueOnce(
       new Error('That folder no longer exists.'),
     )
 
+    await openRowMenu(wrapper)
     await rows(wrapper)[0].get('[data-testid="deck-move"]').trigger('click')
     await wrapper.get('[data-testid="move-save"]').trigger('click')
     await flushPromises()
@@ -187,10 +226,11 @@ describe('FolderView', () => {
   })
 
   it('names the card count before deleting a deck', async () => {
-    const deck = await repositories.decks.create(UNSORTED_FOLDER_ID, 'Verbs', 1000)
+    const deck = await repositories.decks.create(homeId, 'Verbs', 1000)
     await repositories.cards.create(deck.id, { front: 'ser', back: 'to be' }, 1000)
-    const wrapper = await mountView(UNSORTED_FOLDER_ID)
+    const wrapper = await mountView(homeId)
 
+    await openRowMenu(wrapper)
     await rows(wrapper)[0].get('[data-testid="deck-delete"]').trigger('click')
 
     expect(wrapper.get('[data-testid="confirm-message"]').text()).toBe(
@@ -199,9 +239,10 @@ describe('FolderView', () => {
   })
 
   it('deletes the deck once the confirmation is accepted', async () => {
-    await repositories.decks.create(UNSORTED_FOLDER_ID, 'Verbs', 1000)
-    const wrapper = await mountView(UNSORTED_FOLDER_ID)
+    await repositories.decks.create(homeId, 'Verbs', 1000)
+    const wrapper = await mountView(homeId)
 
+    await openRowMenu(wrapper)
     await rows(wrapper)[0].get('[data-testid="deck-delete"]').trigger('click')
     await wrapper.get('[data-testid="confirm-accept"]').trigger('click')
 
@@ -246,25 +287,11 @@ describe('FolderView', () => {
       expect(quiz.origin).toEqual({ name: 'folder', params: { folderId } })
     })
 
-    it('will not quickstart a deck with no cards', async () => {
+    it('offers no quickstart on a deck with no cards', async () => {
       const { folderId } = await folderWithDeck(0)
       const wrapper = await mountView(folderId)
 
-      const button = wrapper.get('[data-testid="deck-quiz"]')
-      await button.trigger('click')
-      await flushPromises()
-
-      expect(button.attributes('aria-disabled')).toBe('true')
-      expect(useQuizStore().phase).toBe('configuring')
-    })
-
-    it('says why an empty deck cannot be quizzed, where a screen reader will find it', async () => {
-      const { folderId } = await folderWithDeck(0)
-      const wrapper = await mountView(folderId)
-
-      const button = wrapper.get('[data-testid="deck-quiz"]')
-      const reason = wrapper.get(`#${button.attributes('aria-describedby')}`)
-      expect(reason.text()).toContain('no cards')
+      expect(wrapper.find('[data-testid="deck-quiz"]').exists()).toBe(false)
     })
 
     it('offers a custom quiz over this folder', async () => {
@@ -276,6 +303,13 @@ describe('FolderView', () => {
         name: 'quiz-configure',
         query: { folder: folderId },
       })
+    })
+
+    it('offers no custom quiz over a folder with no cards in it', async () => {
+      const { folderId } = await folderWithDeck(0)
+      const wrapper = await mountView(folderId)
+
+      expect(wrapper.find('[data-testid="folder-custom-quiz"]').exists()).toBe(false)
     })
   })
 })

@@ -7,7 +7,7 @@ import {
   validateBackup,
 } from '@/domain/backup'
 import type { LibraryData } from '@/domain/backup'
-import { emptyStats, MASTERY_HISTORY_LIMIT, UNSORTED_FOLDER_ID } from '@/domain/models'
+import { emptyStats, MASTERY_HISTORY_LIMIT } from '@/domain/models'
 import type { Card } from '@/domain/models'
 
 /** Noon UTC on the day of the spec's own example (§10). */
@@ -106,7 +106,7 @@ describe('validateBackup', () => {
 
       expect(result.ok).toBe(true)
       if (!result.ok) return
-      expect(result.repairs).toEqual({ rehomedDecks: 0, rejectedCards: 0 })
+      expect(result.repairs).toEqual({ rejectedDecks: 0, rejectedCards: 0 })
     })
 
     it('accepts an empty library', () => {
@@ -275,27 +275,22 @@ describe('validateBackup', () => {
   })
 
   describe('repairs', () => {
-    it('re-homes a deck whose folder is not in the file', () => {
+    it('drops a deck whose folder is not in the file, and counts it', () => {
       const result = validateBackup(fileWith({ folders: [] }))
 
       expect(result.ok).toBe(true)
       if (!result.ok) return
-      expect(result.data.decks[0].folderId).toBe(UNSORTED_FOLDER_ID)
-      expect(result.repairs.rehomedDecks).toBe(1)
+      expect(result.data.decks).toEqual([])
+      expect(result.repairs.rejectedDecks).toBe(1)
     })
 
-    it('leaves a deck that already belongs to Unsorted alone', () => {
-      const orphan = {
-        id: 'deck-2',
-        folderId: UNSORTED_FOLDER_ID,
-        name: 'Loose',
-        ...{ createdAt: 1, updatedAt: 1 },
-      }
-      const result = validateBackup(fileWith({ folders: [], decks: [orphan] }))
+    it('drops the cards of a deck it had to drop', () => {
+      const result = validateBackup(fileWith({ folders: [] }))
 
       expect(result.ok).toBe(true)
       if (!result.ok) return
-      expect(result.repairs.rehomedDecks).toBe(0)
+      expect(result.data.cards).toEqual([])
+      expect(result.repairs.rejectedCards).toBe(1)
     })
 
     it('drops a card whose deck is not in the file, and counts it', () => {

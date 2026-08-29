@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import { seedDefaults, UNSORTED_FOLDER_ID } from '@/db'
 import { useLibraryStore } from '@/stores/library'
 import { repositories } from '@/stores/repositories'
 import { useTestDatabase } from '@/test/repositories'
@@ -8,9 +7,8 @@ import { useTestDatabase } from '@/test/repositories'
 describe('library store', () => {
   const test = useTestDatabase()
 
-  beforeEach(async () => {
+  beforeEach(() => {
     setActivePinia(createPinia())
-    await seedDefaults(test.db, 1000)
   })
 
   /** A folder holding `decks.length` decks of `cardsPerDeck` cards each. */
@@ -33,7 +31,7 @@ describe('library store', () => {
 
       await store.load()
 
-      expect(store.folders.map((folder) => folder.name)).toEqual(['Anatomy', 'Spanish', 'Unsorted'])
+      expect(store.folders.map((folder) => folder.name)).toEqual(['Anatomy', 'Spanish'])
     })
 
     it('counts the decks and cards of each folder', async () => {
@@ -46,11 +44,12 @@ describe('library store', () => {
     })
 
     it('reports no decks and no cards for an empty folder', async () => {
+      const folder = await repositories.folders.create('Spanish', 1000)
       const store = useLibraryStore()
 
       await store.load()
 
-      expect(store.countsFor(UNSORTED_FOLDER_ID)).toEqual({ decks: 0, cards: 0 })
+      expect(store.countsFor(folder.id)).toEqual({ decks: 0, cards: 0 })
     })
 
     it('clears the loading flag when it is done', async () => {
@@ -77,12 +76,13 @@ describe('library store', () => {
 
   describe('createFolder', () => {
     it('appends the new folder to the list in name order', async () => {
+      await repositories.folders.create('Anatomy', 1000)
       const store = useLibraryStore()
       await store.load()
 
       await store.createFolder('Spanish')
 
-      expect(store.folders.map((folder) => folder.name)).toEqual(['Spanish', 'Unsorted'])
+      expect(store.folders.map((folder) => folder.name)).toEqual(['Anatomy', 'Spanish'])
     })
 
     it('persists the folder so a reload still has it', async () => {
@@ -114,7 +114,7 @@ describe('library store', () => {
       await store.createFolder('   ')
 
       expect(store.error).toBe('Name cannot be empty.')
-      expect(store.folders).toHaveLength(1)
+      expect(store.folders).toEqual([])
     })
   })
 
@@ -126,7 +126,7 @@ describe('library store', () => {
 
       await store.renameFolder(folder!.id, 'Spanish')
 
-      expect(store.folders.map((entry) => entry.name)).toEqual(['Spanish', 'Unsorted'])
+      expect(store.folders.map((entry) => entry.name)).toEqual(['Spanish'])
     })
 
     it('persists the new name', async () => {
@@ -137,7 +137,7 @@ describe('library store', () => {
       await store.renameFolder(folder!.id, 'Spanish')
       await store.load()
 
-      expect(store.folders.map((entry) => entry.name)).toEqual(['Spanish', 'Unsorted'])
+      expect(store.folders.map((entry) => entry.name)).toEqual(['Spanish'])
     })
 
     it('sets error and changes nothing when the folder is gone', async () => {
@@ -147,7 +147,7 @@ describe('library store', () => {
       await store.renameFolder('missing', 'Spanish')
 
       expect(store.error).toBe('That folder no longer exists.')
-      expect(store.folders.map((entry) => entry.name)).toEqual(['Unsorted'])
+      expect(store.folders).toEqual([])
     })
   })
 
@@ -159,7 +159,7 @@ describe('library store', () => {
 
       await store.removeFolder(folderId)
 
-      expect(store.folders.map((folder) => folder.name)).toEqual(['Unsorted'])
+      expect(store.folders).toEqual([])
       expect(store.decksIn(folderId)).toEqual([])
     })
 
@@ -171,17 +171,7 @@ describe('library store', () => {
       await store.removeFolder(folderId)
       await store.load()
 
-      expect(store.folders.map((folder) => folder.name)).toEqual(['Unsorted'])
-    })
-
-    it('refuses to delete Unsorted and leaves the state alone', async () => {
-      const store = useLibraryStore()
-      await store.load()
-
-      await store.removeFolder(UNSORTED_FOLDER_ID)
-
-      expect(store.error).toBe('The Unsorted folder cannot be deleted.')
-      expect(store.folders.map((folder) => folder.name)).toEqual(['Unsorted'])
+      expect(store.folders).toEqual([])
     })
   })
 
@@ -330,10 +320,11 @@ describe('library store', () => {
 
   describe('lookups', () => {
     it('finds a folder by id', async () => {
+      const folder = await repositories.folders.create('Spanish', 1000)
       const store = useLibraryStore()
       await store.load()
 
-      expect(store.folder(UNSORTED_FOLDER_ID)?.name).toBe('Unsorted')
+      expect(store.folder(folder.id)?.name).toBe('Spanish')
     })
 
     it('has no folder for an id that is not there', async () => {
@@ -353,7 +344,7 @@ describe('library store', () => {
   })
 
   describe('isEmpty', () => {
-    it('is true on a fresh install, where only the seeded Unsorted folder exists', async () => {
+    it('is true on a fresh install, where nothing has been created yet', async () => {
       const store = useLibraryStore()
 
       await store.load()
@@ -370,16 +361,16 @@ describe('library store', () => {
       expect(store.isEmpty).toBe(false)
     })
 
-    it('is false once a deck lands in Unsorted', async () => {
+    it('is false while a folder left over from an older install is still there', async () => {
+      await test.db.folders.add({ id: 'unsorted', name: 'Unsorted', createdAt: 1, updatedAt: 1 })
       const store = useLibraryStore()
-      await store.load()
 
-      await store.createDeck(UNSORTED_FOLDER_ID, 'Verbs')
+      await store.load()
 
       expect(store.isEmpty).toBe(false)
     })
 
-    it('is true again once the last deck and folder are gone', async () => {
+    it('is true again once the last folder is gone', async () => {
       const folderId = await seedFolder('Spanish', ['Verbs'], 3)
       const store = useLibraryStore()
       await store.load()
@@ -389,7 +380,7 @@ describe('library store', () => {
       expect(store.isEmpty).toBe(true)
     })
 
-    it('is true when even Unsorted is missing, so seeding failing still invites a folder', async () => {
+    it('is true when the library cannot be read, so a failure still invites a folder', async () => {
       vi.spyOn(repositories.folders, 'list').mockResolvedValueOnce([])
       const store = useLibraryStore()
 
@@ -397,16 +388,5 @@ describe('library store', () => {
 
       expect(store.isEmpty).toBe(true)
     })
-  })
-
-  it('clears a previous error once an action succeeds', async () => {
-    const store = useLibraryStore()
-    await store.load()
-    await store.createFolder('')
-    expect(store.error).not.toBeNull()
-
-    await store.createFolder('Spanish')
-
-    expect(store.error).toBeNull()
   })
 })

@@ -62,8 +62,7 @@ and raise it rather than expanding scope silently.
 
 ### 4.1 Entities
 
-All timestamps are **epoch milliseconds**. All IDs are `crypto.randomUUID()`, except
-the reserved `unsorted` folder.
+All timestamps are **epoch milliseconds**. All IDs are `crypto.randomUUID()`.
 
 ```ts
 interface Folder {
@@ -113,8 +112,9 @@ types; the db layer imports them, never the reverse.
   allowed (they are labels, not keys).
 - `Card.front`, `Card.back`: trimmed, non-empty, at most 4000 characters each.
 - Every `Deck.folderId` references an existing folder; every `Card.deckId` an existing deck.
-- The **Unsorted** folder (`id: 'unsorted'`) always exists. It can be renamed but not
-  deleted, and it is recreated by `seedDefaults()` if it is ever missing.
+- Every folder is one the user made. The app creates none of its own, and any folder
+  can be renamed or deleted (ADR-050). A library with no folders is the first-run state
+  §7.1 greets with the splash.
 - `updatedAt` tracks _content_ edits only. Recording a quiz answer changes `stats`
   (and `stats.lastSeenAt`) but must **not** bump `Card.updatedAt`, or every quiz would
   reorder every listing.
@@ -398,10 +398,11 @@ over bespoke CSS. Every element an e2e test touches carries a `data-testid`.
 ### 7.1 Home — folders
 
 List of folders, each row: name, deck count, card count, mastery bar (§7.6), link to the
-folder, and a **Quiz** action that starts a quickstart quiz across all decks in the
-folder. Header action: **New folder** (modal, name field). Row overflow menu: rename
-(modal), delete (confirm dialog, §4.4; hidden for Unsorted). Empty state invites
-creating a folder and explains that decks live inside folders.
+folder, and — once the folder holds a card — a **Quiz** action that starts a quickstart
+quiz across all decks in the folder. Header action: **New folder** (modal, name field).
+Row overflow menu, behind a "more" trigger beside the name: rename (modal), delete
+(confirm dialog, §4.4). Empty state invites creating a folder and explains that decks
+live inside folders.
 
 ### 7.2 Folder — decks
 
@@ -409,14 +410,17 @@ Breadcrumb `Folders / <name>`. Header actions: **New deck** (modal) and
 **Custom quiz** (goes to `quiz-configure` with this folder's decks pre-checked).
 Each deck row: name, card count, mastery bar, and a **Quiz** quickstart button
 (`direction: front`, `tier: 4`, `size: 20`) that goes straight to `quiz-run`.
-Row overflow: rename, move to another folder (modal with folder select), delete.
-Quickstart is disabled with a tooltip when the deck has no cards. Empty state invites
+Row overflow, behind a "more" trigger beside the name: rename, move to another folder
+(modal with folder select), delete.
+An action with nothing to act on is not rendered at all rather than shown disabled:
+quickstart and the header's **Custom quiz** while there are no cards to draw on, and
+**Move** while there is no other folder to move the deck to. Empty state invites
 creating a deck.
 
 ### 7.3 Deck — cards
 
 Breadcrumb `Folders / <folder> / <deck>`. Header actions: **New card**, **Bulk add**
-(§9), **Quiz**. Each card row shows the rendered front (clamped to ~2 lines), a mastery
+(§9), and — once the deck holds a card — **Quiz** and **Custom quiz**. Each card row shows the rendered front (clamped to ~2 lines), a mastery
 badge (`new` / `NN%`), and edit/delete actions. Tapping a row opens the editor.
 
 ### 7.4 Card editor
@@ -432,7 +436,8 @@ Direction toggle (Front / Back), the 7-tier slider with its label, session size
 (10 / 20 / 50 / All), and every deck grouped by folder as checkboxes with a
 select-all per folder. Pre-filled from the launch context, then from
 `cardio.quizConfig`. **Start quiz** is disabled until at least one deck with at least
-one card is checked. If the resulting pool is empty, show an inline explanation instead
+one card is checked — the one action the app disables rather than hides (§7.2), because
+it is this screen's only submit and its gate opens and closes as boxes are ticked. If the resulting pool is empty, show an inline explanation instead
 of navigating.
 
 ### 7.6 Quiz run
@@ -537,11 +542,13 @@ only on explicit confirm, in one transaction.
   included.
 - Import offers two modes: **Merge** — add rows whose IDs are absent, skip existing
   ones, and report both counts; **Replace everything** — behind a typed confirmation,
-  clear all three tables and load the file, then re-seed the Unsorted folder.
+  clear all three tables and load the file. Nothing is seeded afterwards; a file with
+  no folders leaves an empty library.
 - Validation before any write: `app === 'cardio'`, `schemaVersion === 1`, every array
   present, every row passing §4.2 validation, no card referencing a missing deck and no
-  deck a missing folder (orphans are re-homed: decks to Unsorted, cards are rejected
-  with a count). Failure means no write at all and a readable error.
+  deck a missing folder (orphans are rejected with a count: a deck whose folder is
+  absent, and any card left without a deck). Failure means no write at all and a
+  readable error.
 
 ## 11. Theme
 

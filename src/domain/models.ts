@@ -57,13 +57,6 @@ export type MasteryBand = 'new' | 'learning' | 'mastered'
 
 export const MASTERY_HISTORY_LIMIT = 20
 
-/**
- * The one folder that always exists and cannot be deleted (§4.1, §4.2). It lives
- * here rather than in `src/db` because the domain needs it too: importing a
- * backup re-homes an orphaned deck to it (§10).
- */
-export const UNSORTED_FOLDER_ID = 'unsorted'
-
 export function emptyStats(): CardStats {
   return { gets: 0, misses: 0, history: [], lastSeenAt: null }
 }

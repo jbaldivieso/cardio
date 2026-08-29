@@ -6,22 +6,21 @@ import { defineComponent, h } from 'vue'
 import { RouterView } from 'vue-router'
 import { flushPromises, mount } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
-import { UNSORTED_FOLDER_ID, seedDefaults } from '@/db'
 import { FACE_MAX_LENGTH } from '@/domain/validation'
 import { routes } from '@/router'
 import { repositories } from '@/stores/repositories'
 import { useTestDatabase } from '@/test/repositories'
 
 describe('CardEditView', () => {
-  const test = useTestDatabase()
+  useTestDatabase()
   let router: Router
   let deckId: string
 
   beforeEach(async () => {
     setActivePinia(createPinia())
     router = createRouter({ history: createMemoryHistory(), routes })
-    await seedDefaults(test.db, 1000)
-    deckId = (await repositories.decks.create(UNSORTED_FOLDER_ID, 'Verbs', 1000)).id
+    const folder = await repositories.folders.create('Spanish', 1000)
+    deckId = (await repositories.decks.create(folder.id, 'Verbs', 1000)).id
   })
 
   /**

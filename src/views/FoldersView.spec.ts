@@ -4,7 +4,6 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
 import { routes } from '@/router'
-import { seedDefaults, UNSORTED_FOLDER_ID } from '@/db'
 import { useLibraryStore } from '@/stores/library'
 import { useQuizStore } from '@/stores/quiz'
 import { repositories } from '@/stores/repositories'
@@ -40,14 +39,20 @@ describe('FoldersView', () => {
     return wrapper.findAll('[data-testid="folder-row"]')
   }
 
+  /** Rename and delete live behind a row's overflow menu (§7.1). */
+  async function openRowMenu(wrapper: VueWrapper, index = 0): Promise<void> {
+    await rows(wrapper)[index].get('[data-testid="folder-menu"]').trigger('click')
+  }
+
   /** A library someone has started, so the screen lists it instead of the splash. */
-  async function seedStartedLibrary(): Promise<void> {
-    await seedDefaults(test.db, 1000)
-    await repositories.decks.create(UNSORTED_FOLDER_ID, 'Verbs', 1000)
+  async function seedStartedLibrary(): Promise<string> {
+    const folder = await repositories.folders.create('German', 1000)
+    await repositories.decks.create(folder.id, 'Verbs', 1000)
+    return folder.id
   }
 
   it('renders one row per folder, with its deck and card counts', async () => {
-    await seedDefaults(test.db, 1000)
+    await repositories.folders.create('Zoology', 1000)
     const folder = await repositories.folders.create('Spanish', 1000)
     const deck = await repositories.decks.create(folder.id, 'Verbs', 1000)
     await repositories.cards.create(deck.id, { front: 'ser', back: 'to be' }, 1000)
@@ -61,18 +66,17 @@ describe('FoldersView', () => {
   })
 
   it('links each row to its folder', async () => {
-    await seedStartedLibrary()
+    const folderId = await seedStartedLibrary()
 
     const wrapper = await mountView()
 
     expect(rows(wrapper)[0].getComponent(RouterLinkStub).props('to')).toEqual({
       name: 'folder',
-      params: { folderId: UNSORTED_FOLDER_ID },
+      params: { folderId },
     })
   })
 
   it('shows how much of each folder is mastered', async () => {
-    await seedDefaults(test.db, 1000)
     const folder = await repositories.folders.create('Spanish', 1000)
     const deck = await repositories.decks.create(folder.id, 'Verbs', 1000)
     const card = await repositories.cards.create(deck.id, { front: 'ser', back: 'to be' }, 1000)
@@ -99,8 +103,6 @@ describe('FoldersView', () => {
 
   describe('the empty library', () => {
     it('greets a first-time visitor with the splash instead of a list of nothing', async () => {
-      await seedDefaults(test.db, 1000)
-
       const wrapper = await mountView()
 
       expect(rows(wrapper)).toHaveLength(0)
@@ -108,15 +110,12 @@ describe('FoldersView', () => {
     })
 
     it('keeps the header out of the way while the splash is up', async () => {
-      await seedDefaults(test.db, 1000)
-
       const wrapper = await mountView()
 
       expect(wrapper.find('[data-testid="new-folder"]').exists()).toBe(false)
     })
 
     it('opens the new-folder dialog from the splash', async () => {
-      await seedDefaults(test.db, 1000)
       const wrapper = await mountView()
 
       await wrapper.get('[data-testid="splash-create"]').trigger('click')
@@ -127,7 +126,7 @@ describe('FoldersView', () => {
       expect(wrapper.find('[data-testid="library-splash"]').exists()).toBe(false)
     })
 
-    it('lists the library instead once it holds a deck', async () => {
+    it('lists the library instead once it holds a folder', async () => {
       await seedStartedLibrary()
 
       const wrapper = await mountView()
@@ -146,21 +145,34 @@ describe('FoldersView', () => {
     })
   })
 
-  it('offers rename but not delete on the Unsorted folder', async () => {
-    await seedStartedLibrary()
+  // Libraries created before folders became user-only carry a seeded folder with
+  // the reserved id "unsorted"; it is an ordinary folder now, delete included.
+  it('offers rename and delete on every folder, the retired Unsorted included', async () => {
+    await test.db.folders.add({ id: 'unsorted', name: 'Unsorted', createdAt: 1, updatedAt: 1 })
 
     const wrapper = await mountView()
+    await openRowMenu(wrapper)
 
     expect(rows(wrapper)[0].find('[data-testid="folder-rename"]').exists()).toBe(true)
-    expect(rows(wrapper)[0].find('[data-testid="folder-delete"]').exists()).toBe(false)
+    expect(rows(wrapper)[0].find('[data-testid="folder-delete"]').exists()).toBe(true)
   })
 
-  it('offers delete on any other folder', async () => {
-    await repositories.folders.create('Spanish', 1000)
+  it('keeps rename and delete behind the row menu, leaving Quiz on the row', async () => {
+    const folder = await repositories.folders.create('German', 1000)
+    const deck = await repositories.decks.create(folder.id, 'Verbs', 1000)
+    // Quiz is only on the row when there is something to quiz (ADR-054).
+    await repositories.cards.create(deck.id, { front: 'sein', back: 'to be' }, 1000)
 
     const wrapper = await mountView()
 
-    expect(rows(wrapper)[0].find('[data-testid="folder-delete"]').exists()).toBe(true)
+    expect(rows(wrapper)[0].get('[data-testid="folder-quiz"]').isVisible()).toBe(true)
+    expect(rows(wrapper)[0].find('[data-testid="folder-rename"]').exists()).toBe(false)
+    expect(rows(wrapper)[0].find('[data-testid="folder-delete"]').exists()).toBe(false)
+
+    await openRowMenu(wrapper)
+
+    expect(rows(wrapper)[0].get('[data-testid="folder-rename"]').isVisible()).toBe(true)
+    expect(rows(wrapper)[0].get('[data-testid="folder-delete"]').isVisible()).toBe(true)
   })
 
   it('adds a folder through the new-folder dialog', async () => {
@@ -168,10 +180,10 @@ describe('FoldersView', () => {
     const wrapper = await mountView()
 
     await wrapper.get('[data-testid="new-folder"]').trigger('click')
-    await wrapper.get('[data-testid="name-input"]').setValue('Spanish')
+    await wrapper.get('[data-testid="name-input"]').setValue('Anatomy')
     await wrapper.get('[data-testid="name-save"]').trigger('click')
 
-    await vi.waitFor(() => expect(rows(wrapper)[0].text()).toContain('Spanish'))
+    await vi.waitFor(() => expect(rows(wrapper)[0].text()).toContain('Anatomy'))
     expect(wrapper.find('[data-testid="name-dialog"]').exists()).toBe(false)
   })
 
@@ -195,6 +207,7 @@ describe('FoldersView', () => {
     await repositories.folders.create('Spanihs', 1000)
     const wrapper = await mountView()
 
+    await openRowMenu(wrapper)
     await rows(wrapper)[0].get('[data-testid="folder-rename"]').trigger('click')
     await wrapper.get('[data-testid="name-input"]').setValue('Spanish')
     await wrapper.get('[data-testid="name-save"]').trigger('click')
@@ -208,6 +221,7 @@ describe('FoldersView', () => {
     await repositories.cards.create(deck.id, { front: 'ser', back: 'to be' }, 1000)
     const wrapper = await mountView()
 
+    await openRowMenu(wrapper)
     await rows(wrapper)[0].get('[data-testid="folder-delete"]').trigger('click')
 
     expect(wrapper.get('[data-testid="confirm-message"]').text()).toBe(
@@ -219,6 +233,7 @@ describe('FoldersView', () => {
     await repositories.folders.create('Spanish', 1000)
     const wrapper = await mountView()
 
+    await openRowMenu(wrapper)
     await rows(wrapper)[0].get('[data-testid="folder-delete"]').trigger('click')
     await wrapper.get('[data-testid="confirm-accept"]').trigger('click')
 
@@ -229,6 +244,7 @@ describe('FoldersView', () => {
     await repositories.folders.create('Spanish', 1000)
     const wrapper = await mountView()
 
+    await openRowMenu(wrapper)
     await rows(wrapper)[0].get('[data-testid="folder-delete"]').trigger('click')
     await wrapper.get('[data-testid="confirm-cancel"]').trigger('click')
     await flushPromises()
@@ -247,11 +263,11 @@ describe('FoldersView', () => {
 
   describe('starting a quiz', () => {
     it('pools every deck in the folder', async () => {
-      await seedDefaults(test.db, 1000)
       const folder = await repositories.folders.create('Spanish', 1000)
+      const other = await repositories.folders.create('German', 1000)
       const verbs = await repositories.decks.create(folder.id, 'Verbs', 1000)
       const nouns = await repositories.decks.create(folder.id, 'Nouns', 1000)
-      const elsewhere = await repositories.decks.create(UNSORTED_FOLDER_ID, 'Other', 1000)
+      const elsewhere = await repositories.decks.create(other.id, 'Other', 1000)
       await repositories.cards.create(verbs.id, { front: 'ser', back: 'to be' }, 1000)
       await repositories.cards.create(nouns.id, { front: 'casa', back: 'house' }, 1000)
       await repositories.cards.create(elsewhere.id, { front: 'nein', back: 'no' }, 1000)
@@ -266,18 +282,12 @@ describe('FoldersView', () => {
       expect(quiz.direction).toBe('front')
     })
 
-    it('will not quickstart a folder with no cards in it', async () => {
-      await seedDefaults(test.db, 1000)
+    it('offers no quickstart on a folder with no cards in it', async () => {
       await repositories.folders.create('Spanish', 1000)
       const wrapper = await mountView()
 
       const spanish = rows(wrapper).find((row) => row.text().includes('Spanish'))
-      const button = spanish?.get('[data-testid="folder-quiz"]')
-      await button?.trigger('click')
-      await flushPromises()
-
-      expect(button?.attributes('aria-disabled')).toBe('true')
-      expect(useQuizStore().phase).toBe('configuring')
+      expect(spanish?.find('[data-testid="folder-quiz"]').exists()).toBe(false)
     })
   })
 })

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { CardioDb, seedDefaults, UNSORTED_FOLDER_ID } from '@/db'
+import { CardioDb } from '@/db'
 import { createFolderRepo } from '@/db/repositories/folders'
 import { emptyStats } from '@/domain/models'
 import { ValidationError } from '@/domain/validation'
@@ -111,14 +111,6 @@ describe('folder repository', () => {
       })
     })
 
-    it('renames the Unsorted folder, which is a label like any other', async () => {
-      await seedDefaults(db, 1000)
-
-      const renamed = await folders.rename(UNSORTED_FOLDER_ID, 'Inbox', 2000)
-
-      expect(renamed.name).toBe('Inbox')
-    })
-
     it('rejects a blank name and leaves the stored name intact', async () => {
       const folder = await folders.create('Spanish', 5000)
 
@@ -157,11 +149,14 @@ describe('folder repository', () => {
       expect((await db.cards.toArray()).map((row) => row.id)).toEqual(['card-2'])
     })
 
-    it('refuses to delete the Unsorted folder', async () => {
-      await seedDefaults(db, 1000)
+    // Libraries created before folders became user-only carry a seeded folder
+    // with the reserved id "unsorted". It is an ordinary folder now.
+    it('deletes a folder left over from the retired Unsorted id', async () => {
+      await db.folders.add({ id: 'unsorted', name: 'Unsorted', createdAt: 1, updatedAt: 1 })
 
-      await expect(folders.remove(UNSORTED_FOLDER_ID)).rejects.toThrow(ValidationError)
-      expect(await db.folders.get(UNSORTED_FOLDER_ID)).toBeDefined()
+      await folders.remove('unsorted')
+
+      expect(await db.folders.get('unsorted')).toBeUndefined()
     })
 
     it('is a no-op for a folder that is already gone', async () => {

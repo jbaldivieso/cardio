@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import { seedDefaults, UNSORTED_FOLDER_ID } from '@/db'
 import { useCardsStore } from '@/stores/cards'
 import { useLibraryStore } from '@/stores/library'
 import { useMasteryStore } from '@/stores/mastery'
@@ -9,16 +8,18 @@ import { repositories } from '@/stores/repositories'
 import { useTestDatabase } from '@/test/repositories'
 
 describe('mastery store', () => {
-  const test = useTestDatabase()
+  useTestDatabase()
   const DAY = 86_400_000
+
+  let homeFolderId: string
 
   beforeEach(async () => {
     setActivePinia(createPinia())
-    await seedDefaults(test.db, 1000)
+    homeFolderId = (await repositories.folders.create('Spanish', 1000)).id
   })
 
   /** A deck of `cards` untouched cards. */
-  async function seedDeck(name: string, cards: number, folderId = UNSORTED_FOLDER_ID) {
+  async function seedDeck(name: string, cards: number, folderId = homeFolderId) {
     const deck = await repositories.decks.create(folderId, name, 1000)
     for (let i = 0; i < cards; i += 1) {
       await repositories.cards.create(deck.id, { front: `front ${i}`, back: `back ${i}` }, 1000)
@@ -143,7 +144,7 @@ describe('mastery store', () => {
 
     await library.load()
 
-    expect(mastery.folderSummary(UNSORTED_FOLDER_ID)).toEqual({
+    expect(mastery.folderSummary(homeFolderId)).toEqual({
       total: 0,
       new: 0,
       learning: 0,

@@ -137,14 +137,13 @@ describe('deleteEverythingPrompt', () => {
   it('names what goes and what comes back', () => {
     expect(deleteEverythingPrompt({ folders: 3, decks: 4, cards: 212 })).toBe(
       'This deletes every folder, deck and card you have — 3 folders, 4 decks and 212 cards. ' +
-        'Unsorted comes back empty; nothing else comes back at all.',
+        'Nothing comes back.',
     )
   })
 
   it('claims nothing about the size of a library it could not read', () => {
     expect(deleteEverythingPrompt(null)).toBe(
-      'This deletes every folder, deck and card you have. ' +
-        'Unsorted comes back empty; nothing else comes back at all.',
+      'This deletes every folder, deck and card you have. Nothing comes back.',
     )
   })
 })
@@ -174,17 +173,17 @@ describe('importPreview', () => {
 
 describe('repairNotes', () => {
   it('says nothing about a file that needs no repair', () => {
-    expect(repairNotes({ rehomedDecks: 0, rejectedCards: 0 })).toEqual([])
+    expect(repairNotes({ rejectedDecks: 0, rejectedCards: 0 })).toEqual([])
   })
 
-  it('warns where a deck with no folder will land', () => {
-    expect(repairNotes({ rehomedDecks: 2, rejectedCards: 0 })).toEqual([
-      '2 decks with no folder will go to Unsorted.',
+  it('warns that a deck with no folder will be left out', () => {
+    expect(repairNotes({ rejectedDecks: 2, rejectedCards: 0 })).toEqual([
+      '2 decks with no folder will be left out.',
     ])
   })
 
   it('warns that a card with no deck will be left out', () => {
-    expect(repairNotes({ rehomedDecks: 0, rejectedCards: 1 })).toEqual([
+    expect(repairNotes({ rejectedDecks: 0, rejectedCards: 1 })).toEqual([
       '1 card with no deck will be left out.',
     ])
   })

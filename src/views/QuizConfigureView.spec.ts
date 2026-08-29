@@ -4,7 +4,6 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import type { Router } from 'vue-router'
 import { flushPromises, mount } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
-import { seedDefaults, UNSORTED_FOLDER_ID } from '@/db'
 import { defaultQuizConfig } from '@/domain/quiz'
 import { routes } from '@/router'
 import { useQuizStore } from '@/stores/quiz'
@@ -12,7 +11,7 @@ import { repositories } from '@/stores/repositories'
 import { useTestDatabase } from '@/test/repositories'
 
 describe('QuizConfigureView', () => {
-  const test = useTestDatabase()
+  useTestDatabase()
   let router: Router
   let spanishId: string
   let verbsId: string
@@ -23,11 +22,11 @@ describe('QuizConfigureView', () => {
     setActivePinia(createPinia())
     localStorage.clear()
     router = createRouter({ history: createMemoryHistory(), routes })
-    await seedDefaults(test.db, 1000)
     spanishId = (await repositories.folders.create('Spanish', 1000)).id
     verbsId = (await repositories.decks.create(spanishId, 'Verbs', 1000)).id
     nounsId = (await repositories.decks.create(spanishId, 'Nouns', 1000)).id
-    emptyId = (await repositories.decks.create(UNSORTED_FOLDER_ID, 'Empty', 1000)).id
+    const german = await repositories.folders.create('German', 1000)
+    emptyId = (await repositories.decks.create(german.id, 'Empty', 1000)).id
     await repositories.cards.create(verbsId, { front: 'ser', back: 'to be' }, 1000)
     await repositories.cards.create(nounsId, { front: 'casa', back: 'house' }, 1000)
   })

@@ -444,6 +444,30 @@ button has no use for `1` or `←`, so grading still works with the focus on **G
 
 ## ADR-031 — A gated action says `aria-disabled`, not `disabled`
 
+**Narrowed by ADR-054** to one control. The quickstart buttons and both custom quizzes
+are no longer rendered at all when they cannot run, leaving **Start quiz** on the
+configure screen (§7.5) as the only action this ADR still governs: `aria-disabled="true"`
+and `is-static` until a checked deck has a card, the `disabled` attribute off so it keeps
+its place in the tab order, and a guard in its own handler. Its reason is the one that
+was never hidden — `#quiz-start-reason` is an ordinary paragraph above the button, read
+by everyone rather than by a screen reader alone — which is part of why this is the gate
+worth keeping. Why it stays disabled rather than going away is ADR-054's argument, not
+this one's.
+
+**Correction: the tooltip half never worked.** The Why below says a `disabled` button's
+`title` "never appears" because it cannot be focused. That is the wrong mechanism — a
+`title` is drawn on hover, which focus has no bearing on — and the conclusion drawn from
+it does not survive either: Bulma's `.button.is-static` is `pointer-events: none`, so the
+element this ADR reached for instead sees no hover and draws no tooltip of its own. Every
+gated action here offered the pointer nothing; only the `aria-describedby` sentence ever
+carried the reason, and Start quiz never carried a `title` in the first place. §7.2's "disabled with
+a tooltip" is the requirement that went unmet for as long as this ADR stood, and ADR-054
+rewrote it rather than repairing it.
+
+The rest of this ADR is the decision as it was taken, when it covered four actions
+rather than one. Read its "each points at a visually hidden sentence" with the same
+care: Start quiz's has always been on screen.
+
 **Decision.** The quickstart buttons on a deck row, a folder row and the deck screen, and
 **Start quiz** on the configure screen, carry `aria-disabled="true"` and Bulma's
 `is-static` when they cannot run. They keep the `disabled` attribute off, stay in the tab
@@ -525,6 +549,8 @@ consult the live library, so a deck referencing a folder that exists on disk but
 the file is still re-homed.
 
 ## ADR-035 — The reserved Unsorted id belongs to the domain
+
+**Retired by ADR-050**, which removed the reserved folder and the constant with it.
 
 **Decision.** `UNSORTED_FOLDER_ID` moved from `src/db/index.ts` to `src/domain/models.ts`.
 `src/db` re-exports it, so every existing import still reads `from '@/db'`.
@@ -900,3 +926,185 @@ gets the 400 italic thickened by the browser. `--bulma-weight-extrabold` no long
 800; anything that later wants a heavier title has to add the 900 face rather than change
 that number. Code blocks keep Bulma's monospace stack, which is system fonts and reaches
 no network; Nebula Sans has no mono companion.
+
+---
+
+## ADR-050 — Every folder is one the user made
+
+**Supersedes the reserved folder of §4.1 and §4.2.** The `unsorted` folder is gone:
+`seedDefaults()`, `UNSORTED_FOLDER_ID` and `UNSORTED_FOLDER_NAME` are deleted, `main.ts`
+writes nothing before the first paint, and no repository refuses a delete. `isEmpty` is
+now `folders.length === 0`, and `canDeleteFolder()` is gone with the last folder the UI
+had to treat differently.
+
+**Why.** A folder nobody made is a row nobody wants. It was seeded before the first
+paint to guarantee that a deck always had somewhere to live, and the guarantee was never
+worth its cost: on a first visit it was the only row on the screen, holding nothing, and
+ADR-047 already had to hide it behind a splash to keep that screen legible. Every layer
+then carried the exception — a delete the repository refused, a `deletable` prop, an id
+the domain had to know about. Removing the folder removes all of it, and the splash the
+first visit already gets is where the app asks for the first real folder.
+
+**What the splash says now.** The greeting gained one line — "Start with a folder.
+Folders hold decks, and decks hold your cards." — which is §7.1's "explains that decks
+live inside folders", finally said on the screen that needs it rather than in an empty
+list's notification.
+
+**An orphaned deck in a backup is dropped, not re-homed** (amends ADR-034). With no
+reserved folder to re-home it to, a deck whose folder the file does not carry has
+nowhere to go, so it is left out and counted, and its cards go with it — the treatment
+§10 already gave a card whose deck was missing. `BackupRepairs.rehomedDecks` became
+`rejectedDecks`, and the import preview says "1 deck with no folder will be left out."
+Inventing a folder to hold the orphans would have put back exactly the auto-created
+folder this ADR removes.
+
+**A partial file loses more than it used to.** `validateBackup` is a pure function over
+the file, so "missing folder" means missing _from the file_, not from the library the
+rows are about to land in. A merge whose file carries a deck but not its folder therefore
+drops that deck even when the live library has a folder of that id; before this change
+the deck survived, in the wrong folder. An export always carries every folder, so only a
+hand-edited or truncated file can reach this, and the import preview names the count
+before anything is written — but it is a loss where there used to be a repair, and the
+alternative (validating against the library) would put a database read inside a domain
+function.
+
+**Consequence.** A library made before this change still has its seeded folder, named
+Unsorted or whatever it was renamed to. It is an ordinary folder now: it can be deleted,
+and while it is there the library is not empty, so the splash stays down. Nothing
+migrates it away — deleting a folder someone may have filled is not a decision this
+change gets to make for them. Replacing everything from a backup, and the danger zone's
+own **Delete all data**, now leave a genuinely empty library, so both land back on the
+splash; `deleteEverythingPrompt` no longer promises that Unsorted comes back.
+
+---
+
+## ADR-051 — A gated navigation is a disabled button, not a dead link
+
+**Superseded by ADR-054.** A **Custom quiz** with nothing to configure is no longer
+rendered at all, so there is no gated state left for the element swap below to serve.
+
+**Extends ADR-031.** The **Custom quiz** actions on the folder and deck screens are
+`RouterLink`s while they lead somewhere and a `<button class="is-static"
+aria-disabled="true">` carrying the same label and `data-testid` when they do not. Both
+are gated on the cards below them: a folder with no cards anywhere in it, a deck with
+none of its own, has nothing for `quiz-configure` to configure. The deck row's **Move**
+is gated the same way when the library holds one folder, since a move needs somewhere to
+go; it stays a `<button>` in both states and only takes `is-static` and `aria-disabled`.
+
+**Why not keep the link and swallow the click.** A `RouterLink` renders its own `onClick`
+before any listener the caller adds, so a `@click.prevent` on it navigates first and
+prevents afterwards. `custom` with a slot would work, at the cost of hand-writing the
+anchor, its `href` and its focus behaviour. Swapping the element is one `v-if` and leaves
+the enabled path exactly as it was.
+
+**Why a button and not a link with no `href`.** An `<a>` without `href` is not focusable,
+which loses the ADR-031 property this is built on: a gated action keeps its place in the
+tab order so its `aria-describedby` reason can be heard. A `<button>` with `aria-disabled`
+and no handler keeps focus, and reads as a disabled control rather than as a link that
+goes nowhere.
+
+**Consequence.** The action changes role between its two states — link when live, button
+when not. Anything asserting on `RouterLink` for these actions has to seed a card first.
+Each gated action needs a reason element that exists whenever the gate is closed: the
+deck screen reuses `#deck-quiz-reason`, which already says the one thing there is to say,
+and the folder screen and deck row carry their own.
+
+---
+
+## ADR-052 — A row's overflow actions live behind a disclosure, not an ARIA menu
+
+**Decision.** `ActionMenu.vue` holds the actions §7.1 and §7.2 always called an overflow
+menu: a trigger carrying Feather's "more-horizontal", inlined like the app's other two
+icons, sitting immediately after the row's name, and a Bulma `dropdown-menu` holding
+whatever buttons the row passes in the slot. Folder rows put rename and delete there;
+deck rows put rename, move and delete. Quiz stays out on the row in both.
+
+**Why a disclosure.** `role="menu"` is a promise of menu keyboard behaviour — arrow keys
+between items, Home and End, typeahead — and a slot full of ordinary buttons delivers
+none of it. The trigger is a plain button with `aria-expanded` and `aria-controls`; the
+panel is a group of buttons Tab walks in order, which is the disclosure pattern and is
+what the markup actually does. Escape closes the panel and puts the focus back on the
+trigger, and a press anywhere outside closes it.
+
+**Why the panel is `v-if` and not `v-show`.** Bulma hides an inactive `dropdown-menu`
+with `display: none`, so both look the same in a browser; only `v-if` keeps a closed
+menu's buttons out of the DOM, where nothing — a test, a `find`, an accessibility tree —
+can reach an action that is not on screen. `aria-controls` is bound only while the panel
+exists, since it would otherwise name an id that is not there.
+
+**Consequence.** Rename, move and delete cost two presses instead of one, which is the
+trade §7.1 asked for: the row now reads as a name, its size and the one action it is
+for. The 44 px target of §7 is applied once, on `.dropdown-item` inside the panel via
+`:deep`, rather than by every row that fills the slot. Anything reaching for
+`folder-rename`, `deck-rename`, `deck-move` or `deck-delete` — a test, or a future
+keyboard shortcut — has to open the menu first. The panel closes on any press that
+reaches it, with no exceptions: ADR-054 leaves no gated item in the slot to make one for.
+
+---
+
+## ADR-053 — A row menu's panel is measured against the row, not its trigger
+
+**Decision.** `ActionMenu`'s `.dropdown` is `position: static` and its `.dropdown-menu`
+is `left: auto; right: 0`, which pins an open panel to the right edge of
+`.cardio-row-main` — the row's name column, made `position: relative` for this. The panel
+opens below that column rather than directly below the trigger.
+
+**Why.** ADR-052 puts the trigger immediately after the row's name, so its left edge
+moves with the name's length, and Bulma anchors an open panel to that left edge with a
+`min-width` of 12 rem. On a 393 px viewport a name of a dozen or so characters put the
+panel's right edge past the screen: measured at 430 px for a folder called "Kitchen
+Vocabulary" and 490 px for a name half again as long, taking `document.scrollWidth` with
+it. Part of the menu was unreachable and the page scrolled sideways.
+
+**Why not `is-right`.** Bulma's own right-alignment pins the panel to the _trigger's_
+right edge, which fails at the other end of the same range: a short name leaves the
+trigger near the left margin and a 12 rem panel hanging off that side instead. The row's
+name column is the one anchor that is on screen at every name length and every width.
+
+**Consequence.** The panel drops below the name and its count rather than from the
+trigger itself, which reads as attached to the row and has the incidental benefit of not
+covering the count. `ActionMenu` now depends on its host being a positioned box:
+`.cardio-row-main` carries a comment saying so, and a row that uses the menu without it
+would see the panel escape to the next positioned ancestor. `e2e/row-menu.spec.ts` holds
+the regression at both viewports, with the short and the long name as the two ends of
+the range; it is an e2e test because the panel's position comes from Bulma's stylesheet
+and the width of a name in the app's own font, which jsdom has neither of.
+
+---
+
+## ADR-054 — An action with nothing to act on is not rendered
+
+**Narrows ADR-031, supersedes ADR-051, amends ADR-052.** The quickstart **Quiz** on a
+deck row, a folder row and the deck screen, the **Custom quiz** on the folder and deck
+screens, and **Move** in a deck row's menu are absent from the DOM whenever they cannot
+run. No `aria-disabled`, no `is-static`, no `title`, and none of the `is-sr-only`
+sentences that used to carry the reason: the control is simply not there until it works.
+
+**Why.** ADR-031 kept a gated action on screen so its reason could be heard, and on the
+rows and the two headers it offered that reason two ways — a `title` for the pointer, an
+`aria-describedby` sentence for a screen reader. Only the second ever worked. Bulma's `.button.is-static` is
+`pointer-events: none`, so the element never sees a hover and the browser never draws the
+tooltip; the sighted user got a grey button that stayed silent when pressed and explained
+itself only to a screen reader. §7.2 had asked for "disabled with a tooltip", and the
+implementation had been quietly delivering half of it since ADR-031 was written.
+
+Restoring the tooltip was the smaller change, and it would still have left a control
+whose whole purpose is to be pressed and refuse. The empty states already say what is
+missing — an empty deck's screen says "No cards in this deck yet", an empty folder's says
+to create a deck — so the reason was never only on the disabled button, and the button
+was the least useful place it appeared.
+
+**The one exception is `quiz-configure`'s Start quiz** (§7.5), which keeps ADR-031's
+treatment. It is the screen's only submit, and its gate opens and closes while the user
+works — untick the last deck and a hidden button would vanish from under the pointer,
+which is worse than a disabled one that says why. A gate the user can open from the same
+screen is a different thing from an action that has nowhere to go.
+
+**Consequence.** An empty deck's row is a name, a count and its menu; a library with one
+folder has no **Move** anywhere in it. `DeckRow` and `FolderRow` lost their `useId`
+reason ids and their guard functions — the handlers no longer need to check what the
+render already decided — and `ActionMenu` lost the `aria-disabled` branch that kept the
+panel open for a gated item, since no slot passes one any more. The `movable` and
+`cardCount` props stay: they now decide whether to render rather than how. A test can no
+longer press a gated action to prove it does nothing, so the assertions are that the
+`data-testid` is absent, which is the stronger claim anyway.

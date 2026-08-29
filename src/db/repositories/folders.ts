@@ -1,4 +1,4 @@
-import { db, UNSORTED_FOLDER_ID } from '@/db'
+import { db } from '@/db'
 import type { CardioDb } from '@/db'
 import { durableWrite } from '@/db/persistence'
 import { byName } from '@/db/sorting'
@@ -56,9 +56,6 @@ export function createFolderRepo(database: CardioDb = db): FolderRepo {
     },
 
     async remove(id: string): Promise<void> {
-      if (id === UNSORTED_FOLDER_ID) {
-        throw new ValidationError('id', 'The Unsorted folder cannot be deleted.')
-      }
       await durableWrite(database, () =>
         database.transaction('rw', database.folders, database.decks, database.cards, async () => {
           const deckIds = await database.decks.where('folderId').equals(id).primaryKeys()
