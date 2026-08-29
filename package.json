@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Offline-first PWA for flash cards with mastery-weighted quizzing",
+  "description": "Offline-first PWA for flashcards with mastery-weighted quizzing",
   "license": "MIT",
   "engines": {
     "node": ">=22"

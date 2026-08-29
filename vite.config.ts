@@ -34,7 +34,7 @@ export default defineConfig({
         id: BASE,
         name: 'Cardio',
         short_name: 'Cardio',
-        description: 'Offline flash cards with mastery-weighted quizzing',
+        description: 'Offline flashcards with mastery-weighted quizzing',
         theme_color: '#00d1b2',
         background_color: '#ffffff',
         display: 'standalone',

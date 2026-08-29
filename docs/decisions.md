@@ -1108,3 +1108,55 @@ panel open for a gated item, since no slot passes one any more. The `movable` an
 `cardCount` props stay: they now decide whether to render rather than how. A test can no
 longer press a gated action to prove it does nothing, so the assertions are that the
 `data-testid` is absent, which is the stronger claim anyway.
+
+## ADR-055 — Every icon is derived from one logo, and the splash shows it
+
+**Decision.** `design/cardio-logo-bg.png` (1254², the character on its green ground) and
+`design/cardio-logo-no-bg.png` (1536×1024, the same character on transparency) are the
+source art. Everything in `public/` that shows a mark is derived from them:
+`pwa-192x192.png`, `pwa-512x512.png`, `apple-touch-icon.png` (180²) and `favicon.png`
+(96²) are straight area-averaged reductions of the green square;
+`maskable-512x512.png` re-centres and shrinks it onto a flat field of the same green;
+`logo-dark-512.png` is the transparent one, trimmed and re-centred. The hand-drawn
+`favicon.svg` is gone, and `index.html` asks for `favicon.png` instead.
+
+`LibrarySplash` shows the icon above the title — `pwa-512x512.png` rounded at 22.4%
+under a light theme, `logo-dark-512.png` square and groundless under a dark one — and the
+hint that explains what a folder holds moved to below the **Create a folder** button.
+
+**Why the sources moved out of `public/`.** They weigh 2.2 MB together, and
+`workbox.globPatterns` sweeps every `png` in `dist/` into the precache: leaving them
+where they landed would have added 2.2 MB to a 1.5 MB app, downloaded on install by
+every visitor, to serve two files nothing renders. `design/` is not copied into the
+build.
+
+**Why those numbers.** A maskable icon is guaranteed only the centred circle of radius
+40% — every platform crops the rest to its own shape — and the character reaches 539 px
+from its own centre in a 1254 px square, so it is scaled by `0.4 × 512 × 0.95 / 539` and
+placed by its own centre rather than the source square's, which sits 1.7% higher. The
+result reaches 195 px of the 205 px safe radius. The dark logo is scaled so the character
+spans 85.17% of 512 px — the same fraction it spans in the green square — so switching
+themes changes the ground under the mark and not its size.
+
+**Why they are indexed PNGs.** The art carries a fine print grain that is invisible at
+icon size and ruinous for compression: no two neighbouring pixels agree, and a truecolour
+512² came out at 188 KB. Averaging each 3×3 window that is already flat, and leaving
+every window that is not, removes the grain without touching a drawn edge; quantised to
+64 colours the same icon is 33 KB, at a root-mean-square error of 2.8 — the amplitude of
+the grain that was removed. The six files together are 136 KB. `logo-dark-512.png` stays
+truecolour: its halo is a smooth alpha ramp, which a palette would band.
+
+**Why the splash logo is a CSS background.** The two files differ by theme, and the theme
+is `data-theme` on `<html>`, which the user sets (§11) — not `prefers-color-scheme`. A
+`<picture>` can only switch on the media query, and a pair of `<img>` elements would
+download both files to show one. A background switched by `[data-theme='dark']` fetches
+only the file it paints. It costs the element its place in the accessibility tree, which
+is right here: the `<h1>` directly under it already says Cardio, so the icon is
+`aria-hidden`.
+
+**Consequence.** The icons can be regenerated from `design/` but not from a committed
+script — the derivation is written down above rather than automated, so redoing it is
+deliberate work. At a favicon's 16 px the character is a shape rather than a face; a
+simplified mark for that size would be a separate piece of design. `theme_color` is still
+Bulma's `#00d1b2`, which matches neither the Grove palette nor the logo's green, and is
+left for whoever decides what the browser chrome should be.
