@@ -97,7 +97,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 
         <p class="has-text-weight-semibold" data-testid="bulk-summary">{{ summary }}</p>
 
-        <ul v-if="result.errors.length > 0" class="content is-size-7" data-testid="bulk-errors">
+        <ul v-if="result.errors.length > 0" class="content" data-testid="bulk-errors">
           <li v-for="failure in result.errors" :key="failure.line">
             Line {{ failure.line }} — {{ failure.reason }}
           </li>

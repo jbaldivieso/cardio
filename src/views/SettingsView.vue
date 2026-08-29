@@ -94,12 +94,12 @@ async function onConfirmed(): Promise<void> {
 
     <section class="block" aria-labelledby="settings-about">
       <h2 id="settings-about" class="title is-6">About</h2>
-      <p class="is-size-7 mb-2" data-testid="about-mastery">
+      <p class="mb-2" data-testid="about-mastery">
         Every card has a mastery score out of 100. 80 or more counts as mastered. The score
         increases as you get the card right. Your most recent answers count the most. It decreases
         over time if you do not see the card again.
       </p>
-      <p class="is-size-7 has-text-grey" data-testid="app-version">Cardio {{ version }}</p>
+      <p class="has-text-grey" data-testid="app-version">Cardio {{ version }}</p>
     </section>
 
     <section class="block" aria-labelledby="settings-theme">
@@ -118,14 +118,14 @@ async function onConfirmed(): Promise<void> {
           {{ themeLabels[option] }}
         </button>
       </div>
-      <p class="is-size-7 has-text-grey">
-        System follows this device's light or dark setting as it changes.
+      <p>
+        (System uses device's light or dark setting.)
       </p>
     </section>
 
     <section class="block" aria-labelledby="settings-storage">
       <h2 id="settings-storage" class="title is-6">Storage</h2>
-      <p class="is-size-7" data-testid="storage-status">
+      <p data-testid="storage-status">
         <template v-if="persistent === null">Checking with the browser…</template>
         <template v-else-if="persistent">
           Storage is persistent: this browser has agreed to keep your cards until you delete them.
@@ -224,7 +224,7 @@ async function onConfirmed(): Promise<void> {
 
     <section v-if="install.hint" class="block" aria-labelledby="settings-install">
       <h2 id="settings-install" class="title is-6">Install</h2>
-      <p class="is-size-7" data-testid="install-hint">
+      <p data-testid="install-hint">
         Cardio runs offline once installed.
         <template v-if="install.hint === 'ios'">Tap Share, then Add to Home Screen.</template>
         <template v-else-if="install.hint === 'macos-safari'">
@@ -266,7 +266,7 @@ async function onConfirmed(): Promise<void> {
           </span>
         </span>
       </h2>
-      <p class="is-size-7 has-text-grey mb-2" data-testid="danger-summary">
+      <p class="mb-2" data-testid="danger-summary">
         {{ storedPrompt(totals) }}
       </p>
       <button

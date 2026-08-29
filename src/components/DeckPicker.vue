@@ -94,7 +94,7 @@ function toggleFolder(deckIds: string[], checked: boolean): void {
             />
             <span class="cardio-row-main">
               {{ deck.name }}
-              <span class="has-text-grey is-size-7 ml-2" :data-testid="`deck-cards-${deck.id}`">
+              <span class="has-text-grey ml-2" :data-testid="`deck-cards-${deck.id}`">
                 {{ countLabel(cardCounts[deck.id] ?? 0, 'card') }}
               </span>
             </span>

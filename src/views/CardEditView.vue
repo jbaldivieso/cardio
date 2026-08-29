@@ -142,7 +142,7 @@ function answerLeave(leave: boolean): void {
               {{ faceLength(front) }} / {{ FACE_MAX_LENGTH }}
             </p>
           </div>
-          <p class="label is-size-7">Preview</p>
+          <p class="label">Preview</p>
           <MarkdownText :source="front" class="box" data-testid="card-front-preview" />
         </div>
 
@@ -166,7 +166,7 @@ function answerLeave(leave: boolean): void {
               {{ faceLength(back) }} / {{ FACE_MAX_LENGTH }}
             </p>
           </div>
-          <p class="label is-size-7">Preview</p>
+          <p class="label">Preview</p>
           <MarkdownText :source="back" class="box" data-testid="card-back-preview" />
         </div>
       </div>

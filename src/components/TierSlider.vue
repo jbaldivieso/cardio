@@ -61,7 +61,7 @@ function onInput(event: Event): void {
       @keydown="onKeydown"
     />
     <p class="is-size-6 has-text-weight-medium" data-testid="tier-label">{{ label }}</p>
-    <p class="is-size-7 has-text-grey">Tier {{ modelValue }} of {{ QUIZ_TIERS.length }}</p>
+    <p class="has-text-grey">Tier {{ modelValue }} of {{ QUIZ_TIERS.length }}</p>
   </div>
 </template>
 

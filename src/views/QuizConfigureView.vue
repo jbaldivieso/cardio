@@ -150,7 +150,7 @@ async function startQuiz(): Promise<void> {
       {{ library.error ?? quiz.error }}
     </p>
 
-    <p id="quiz-start-reason" class="is-size-7 has-text-grey mb-2">
+    <p id="quiz-start-reason" class="has-text-grey mb-2">
       {{
         canStart
           ? 'Ready to start.'

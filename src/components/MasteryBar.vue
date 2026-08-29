@@ -48,7 +48,7 @@ const label = computed(() => masteryLabel(props.summary))
         :data-testid="`mastery-${segment.band}`"
       />
     </div>
-    <span class="is-size-7 has-text-grey is-flex-shrink-0" data-testid="mastery-headline">
+    <span class="has-text-grey is-flex-shrink-0" data-testid="mastery-headline">
       {{ headline }}
     </span>
   </div>

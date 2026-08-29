@@ -9,7 +9,7 @@ defineProps<{ position: number; total: number }>()
 
 <template>
   <div class="mb-4" data-testid="quiz-progress">
-    <p class="is-size-7 has-text-grey mb-1" aria-live="polite" data-testid="quiz-progress-count">
+    <p class="has-text-grey mb-1" aria-live="polite" data-testid="quiz-progress-count">
       {{ position }} / {{ total }}
     </p>
     <progress

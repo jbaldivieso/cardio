@@ -59,7 +59,7 @@ const quizzable = computed(() => props.cardCount > 0)
           Delete
         </button>
       </ActionMenu>
-      <p class="is-size-7 has-text-grey" data-testid="folder-counts">
+      <p class="has-text-grey" data-testid="folder-counts">
         {{ countLabel(deckCount, 'deck') }} · {{ countLabel(cardCount, 'card') }}
       </p>
     </div>

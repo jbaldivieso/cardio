@@ -86,17 +86,17 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
         <div class="cardio-flip-scroll" data-testid="quiz-prompt">
           <MarkdownText :source="prompt" />
         </div>
-        <p class="has-text-grey is-size-7 mt-3" data-testid="quiz-reveal-hint">
-          Tap to reveal · Space or Enter
+        <p class="has-text-grey mt-3" data-testid="quiz-reveal-hint">
+          Tap to reveal <span class="cardio-keyboard-hint">· Space or Enter</span>
         </p>
       </div>
 
       <div class="cardio-flip-face cardio-flip-answer box" :aria-hidden="!flipped">
         <div class="cardio-flip-scroll">
-          <p class="heading has-text-grey is-size-7" data-testid="quiz-label-front">Front</p>
+          <p class="heading has-text-grey" data-testid="quiz-label-front">Front</p>
           <div data-testid="quiz-face-front"><MarkdownText :source="card.front" /></div>
           <hr class="my-3" />
-          <p class="heading has-text-grey is-size-7" data-testid="quiz-label-back">Back</p>
+          <p class="heading has-text-grey" data-testid="quiz-label-back">Back</p>
           <div data-testid="quiz-face-back"><MarkdownText :source="card.back" /></div>
         </div>
       </div>
@@ -109,7 +109,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
         data-testid="quiz-missed"
         @click="emit('grade', false)"
       >
-        Missed it <span class="has-text-grey ml-2 is-size-7">1</span>
+        Missed it <span class="cardio-key ml-2" aria-hidden="true">1</span>
       </button>
       <button
         type="button"
@@ -117,7 +117,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
         data-testid="quiz-got"
         @click="emit('grade', true)"
       >
-        Got it <span class="has-text-grey ml-2 is-size-7">2</span>
+        Got it <span class="cardio-key ml-2" aria-hidden="true">2</span>
       </button>
     </div>
 
@@ -154,6 +154,30 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 
 .cardio-flip-answer {
   transform: rotateY(180deg);
+}
+
+/*
+ * The §7.6 grading shortcut printed on its own button, as a key cap. It takes
+ * the button's own text colour rather than a grey, which on `is-success`'s
+ * solid green was too faint to read and on `is-danger is-light` was neither the
+ * label's colour nor the button's; only the outline is dimmed.
+ */
+.cardio-key {
+  display: inline-block;
+  min-width: 1.6em;
+  border: 1px solid color-mix(in srgb, currentColor 40%, transparent);
+  border-radius: 4px;
+  font-size: 0.72em;
+  font-weight: var(--bulma-weight-normal);
+  line-height: 1.5;
+}
+
+/* A pointer that cannot hover is a finger: no keyboard to name a key for. */
+@media (hover: none) {
+  .cardio-key,
+  .cardio-keyboard-hint {
+    display: none;
+  }
 }
 
 /* Long content scrolls inside the card; the page itself never does (§7.6). */
