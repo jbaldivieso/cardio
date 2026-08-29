@@ -118,9 +118,7 @@ async function onConfirmed(): Promise<void> {
           {{ themeLabels[option] }}
         </button>
       </div>
-      <p>
-        (System uses device's light or dark setting.)
-      </p>
+      <p>(System uses device's light or dark setting.)</p>
     </section>
 
     <section class="block" aria-labelledby="settings-storage">
